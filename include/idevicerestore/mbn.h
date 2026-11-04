@@ -1,8 +1,9 @@
 /*
  * mbn.h
- * support for .mbn file format (found in .bbfw files)
+ * support for Qualcomm MBN (Modem Binary) formats
  *
  * Copyright (c) 2012 Nikias Bassen. All Rights Reserved.
+ * Copyright (c) 2025 Visual Ehrmanntraut <visual@chefkiss.dev>. All Rights Reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -23,6 +24,7 @@
 
 #include <stdint.h>
 
+<<<<<<< HEAD:include/idevicerestore/mbn.h
 #define MBN_V1_MAGIC "\x0A\x00\x00\x00"
 #define MBN_V1_MAGIC_SIZE 4
 
@@ -103,5 +105,9 @@ typedef struct {
 mbn_file* mbn_parse(unsigned char* data, size_t size);
 void mbn_free(mbn_file* mbn);
 int mbn_update_sig_blob(mbn_file* mbn, const unsigned char* data, size_t size);
+=======
+void* mbn_stitch(const void* data, size_t data_size, const void* blob, size_t blob_size);
+void* mbn_mav25_stitch(const void* data, size_t data_size, const void* blob, size_t blob_size);
+>>>>>>> ae8cfb4aa919000b283a0fe7db96b1a321a010d3:src/mbn.h
 
 #endif

@@ -58,6 +58,10 @@ Prints usage information.
 .B \-C, \-\-cache\-path DIR
 Use specified directory for caching extracted or other reused files.
 .TP
+.B \-\-logfile PATH
+Write logging output to file at PATH. If PATH equals \f[B]NULL\f[] or \f[B]NONE\f[],
+no log file will be written. This disables automatic log file creation.
+.TP
 .B \-d, \-\-debug
 Enable communication debugging.
 .TP
@@ -106,6 +110,46 @@ Use given VARIANT to match the build identity to use, e.g. 'Customer Erase Insta
 Try to continue the restore process after certain errors (like a failed baseband update).
 
 \f[B]WARNING\f[]: This might render the device unable to boot or only partially functioning. \f[B]Use with caution\f[].
+.TP
+.B \-\-exclusive\-usb
+\f[B](macOS only)\f[] Keep the \f[B]deviceinterfaced\f[] system daemon from claiming the
+USB device during Port DFU-to-DFU re-enumeration, which can otherwise cause
+idevicerestore to time out waiting for the device to reconnect.
+
+idevicerestore itself does not need to run as root for this option. The few
+\f[B]launchctl\f[](1) subcommands that manage the system-domain
+\f[B]com.apple.deviceinterfaced\f[] daemon (\f[B]bootout\f[], \f[B]bootstrap\f[],
+\f[B]kickstart\f[], \f[B]kill\f[]) are elevated individually via \f[B]sudo\f[](8), which
+may prompt for your password (or Touch ID, if configured) on the controlling
+terminal. See the \f[B]NOTES\f[] section below for unattended use.
+
+\f[B]EXPERIMENTAL\f[]: only use if you are hitting DFU reconnection timeouts.
+
+.SH NOTES
+.SS Passwordless \-\-exclusive\-usb
+By default, using \f[B]\-\-exclusive\-usb\f[] will prompt for your
+password via \f[B]sudo\f[](8) whenever idevicerestore needs to boot out,
+kickstart, or forcibly terminate the \f[B]com.apple.deviceinterfaced\f[]
+daemon. For unattended/scripted use, you can allow just those specific
+commands to run without a password by adding a narrowly-scoped rule to
+\f[B]sudoers\f[](5), e.g. via \f[B]visudo \-f /etc/sudoers.d/idevicerestore\f[]:
+
+.nf
+.RS
+Cmnd_Alias DEVICEINTERFACED_CTL = \\
+    /bin/launchctl bootout system/com.apple.deviceinterfaced, \\
+    /bin/launchctl bootstrap system /Library/Apple/System/Library/PrivateFrameworks/DeviceInterface.framework/Support/com.apple.deviceinterfaced.plist, \\
+    /bin/launchctl kickstart system/com.apple.deviceinterfaced, \\
+    /bin/launchctl kill SIGKILL system/com.apple.deviceinterfaced
+
+%admin ALL=(root) NOPASSWD: DEVICEINTERFACED_CTL
+.RE
+.fi
+
+Replace \f[B]%admin\f[] with the specific user or group that should be
+allowed to run these commands without a password. This grants no broader
+privileges: only these exact \f[B]launchctl\f[] invocations, against this
+one system daemon, may be run as root without authentication.
 
 .SH AUTHORS
 Martin Szulecki

@@ -39,7 +39,12 @@ extern "C" {
 #include <libirecovery.h>
 #include <libimobiledevice-glue/thread.h>
 
+<<<<<<< HEAD:include/idevicerestore/common.h
 #include <idevicerestore/idevicerestore.h>
+=======
+#include "idevicerestore.h"
+#include "log.h"
+>>>>>>> ae8cfb4aa919000b283a0fe7db96b1a321a010d3:src/common.h
 
 #define _MODE_UNKNOWN         0
 #define _MODE_WTF             1
@@ -81,16 +86,6 @@ struct idevicerestore_mode_t {
 	const char* string;
 };
 
-struct idevicerestore_entry_t {
-	char* name;
-	char* path;
-	char* filename;
-	char* blob_data;
-	uint32_t blob_size;
-	struct idevicerestore_entry* next;
-	struct idevicerestore_entry* prev;
-};
-
 struct idevicerestore_client_t {
 	int flags;
 	int debug_level;
@@ -104,7 +99,9 @@ struct idevicerestore_client_t {
 	unsigned int nonce_size;
 	int image4supported;
 	plist_t build_manifest;
+	plist_t firmware_preflight_info;
 	plist_t preflight_info;
+	plist_t parameters;
 	char* udid;
 	char* srnm;
 	ipsw_archive_t ipsw;
@@ -112,7 +109,6 @@ struct idevicerestore_client_t {
 	struct restore_client_t* restore;
 	struct recovery_client_t* recovery;
 	irecv_device_t device;
-	struct idevicerestore_entry_t** entries;
 	struct idevicerestore_mode_t* mode;
 	char* version;
 	char* build;
@@ -131,6 +127,7 @@ struct idevicerestore_client_t {
 	cond_t device_event_cond;
 	int ignore_device_add_events;
 	plist_t macos_variant;
+	plist_t recovery_variant;
 	char* restore_variant;
 	char* filesystem;
 	int delete_fs;
@@ -142,19 +139,44 @@ struct idevicerestore_client_t {
 	plist_t bbfw_buildidentity;
 };
 
+extern int global_quit_flag;
+
 extern struct idevicerestore_mode_t idevicerestore_modes[];
 
 extern int idevicerestore_debug;
 
-__attribute__((format(printf, 1, 2)))
-void info(const char* format, ...);
-__attribute__((format(printf, 1, 2)))
-void error(const char* format, ...);
-__attribute__((format(printf, 1, 2)))
-void debug(const char* format, ...);
+void set_banner_funcs(void (*showfunc)(const char*), void (*hidefunc)(void));
+void show_banner(const char* text);
+void hide_banner();
 
-void debug_plist(plist_t plist);
-void print_progress_bar(double progress);
+struct progress_info_entry {
+	uint32_t tag;
+	char* label;
+	double progress;
+	double lastprog;
+};
+void set_update_progress_func(void (*func)(struct progress_info_entry** list, int count));
+void set_progress_granularity(double granularity);
+uint32_t progress_get_next_tag(void);
+void progress_reset_tag(void);
+void register_progress(uint32_t tag, const char* label);
+void set_progress(uint32_t tag, double progress);
+void finalize_progress(uint32_t tag);
+void print_progress_bar(const char* prefix, double progress);
+void progress_display_suspend(void);
+void progress_display_resume(void);
+
+struct tuple {
+	int idx;
+	int len;
+	int plen;
+};
+
+int process_text_lines(const char* text, int maxwidth, struct tuple** lines_out, int* maxlen_out);
+
+void set_prompt_func(int (*func)(const char* title, const char* text));
+int prompt_user(const char* title, const char* message);
+
 int read_file(const char* filename, void** data, size_t* size);
 int write_file(const char* filename, const void* data, size_t size);
 

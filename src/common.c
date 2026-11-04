@@ -32,14 +32,17 @@
 #include <errno.h>
 #include <libgen.h>
 #include <time.h>
+#include <math.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <ctype.h>
 #include <libimobiledevice-glue/thread.h>
+#include <libimobiledevice-glue/collection.h>
 
 #ifdef WIN32
 #include <windows.h>
 #include <conio.h>
+#include <io.h>
 #ifndef _O_EXCL
 #define _O_EXCL  0x0400
 #endif
@@ -50,12 +53,20 @@
 #include <sys/time.h>
 #include <pthread.h>
 #include <termios.h>
+#include <sys/ioctl.h>
 #endif
 
 #include <idevicerestore/common.h>
 #include <idevicerestore/endianness.h>
 
 #define MAX_PRINT_LEN 64*1024
+
+int global_quit_flag = 0;
+static const char* STARS  = "******************************************************************************";
+static const char* SPACES = "                                                                              ";
+static const char* POUNDS = "##############################################################################";
+
+static uint32_t progress_unique_tag = 1;
 
 struct idevicerestore_mode_t idevicerestore_modes[] = {
 	{  0, "Unknown"  },
@@ -69,119 +80,17 @@ struct idevicerestore_mode_t idevicerestore_modes[] = {
 
 int idevicerestore_debug = 0;
 
-#define idevicerestore_err_buff_size 256
-static char idevicerestore_err_buff[idevicerestore_err_buff_size] = {0, };
-
-static FILE* info_stream = NULL;
-static FILE* error_stream = NULL;
-static FILE* debug_stream = NULL;
-
-static int info_disabled = 0;
-static int error_disabled = 0;
-static int debug_disabled = 0;
-
-static mutex_t log_mutex;
-static thread_once_t init_once = THREAD_ONCE_INIT;
-
-static void _log_init(void)
-{
-	mutex_init(&log_mutex);
-}
-
-void info(const char* format, ...)
-{
-	if (info_disabled) return;
-	thread_once(&init_once, _log_init);
-	mutex_lock(&log_mutex);
-	va_list vargs;
-	va_start(vargs, format);
-	vfprintf((info_stream) ? info_stream : stdout, format, vargs);
-	va_end(vargs);
-	mutex_unlock(&log_mutex);
-}
-
-void error(const char* format, ...)
-{
-	thread_once(&init_once, _log_init);
-	mutex_lock(&log_mutex);
-	va_list vargs, vargs2;
-	va_start(vargs, format);
-	va_copy(vargs2, vargs);
-	vsnprintf(idevicerestore_err_buff, idevicerestore_err_buff_size, format, vargs);
-	va_end(vargs);
-	if (!error_disabled) {
-		vfprintf((error_stream) ? error_stream : stderr, format, vargs2);
-	}
-	va_end(vargs2);
-	mutex_unlock(&log_mutex);
-}
-
-void debug(const char* format, ...)
-{
-	if (debug_disabled) return;
-	if (!idevicerestore_debug) {
-		return;
-	}
-	thread_once(&init_once, _log_init);
-	mutex_lock(&log_mutex);
-	va_list vargs;
-	va_start(vargs, format);
-	vfprintf((debug_stream) ? debug_stream : stderr, format, vargs);
-	va_end(vargs);
-	mutex_unlock(&log_mutex);
-}
-
-void idevicerestore_set_info_stream(FILE* strm)
-{
-	if (strm) {
-		info_disabled = 0;
-		info_stream = strm;
-	} else {
-		info_disabled = 1;
-	}
-}
-
-void idevicerestore_set_error_stream(FILE* strm)
-{
-	if (strm) {
-		error_disabled = 0;
-		error_stream = strm;
-	} else {
-		error_disabled = 1;
-	}
-}
-
-void idevicerestore_set_debug_stream(FILE* strm)
-{
-	if (strm) {
-		debug_disabled = 0;
-		debug_stream = strm;
-	} else {
-		debug_disabled = 1;
-	}
-}
-
-const char* idevicerestore_get_error(void)
-{
-	if (idevicerestore_err_buff[0] == 0) {
-		return NULL;
-	} else {
-		char* p = NULL;
-		while ((strlen(idevicerestore_err_buff) > 0) && (p = strrchr(idevicerestore_err_buff, '\n'))) {
-			p[0] = '\0';
-		}
-		return (const char*)idevicerestore_err_buff;
-	}
-}
+static void (*banner_func)(const char*) = NULL;
+static void (*banner_hide_func)(void) = NULL;
 
 int write_file(const char* filename, const void* data, size_t size) {
 	size_t bytes = 0;
 	FILE* file = NULL;
 
-	debug("Writing data to %s\n", filename);
+	logger(LL_DEBUG, "Writing data to %s\n", filename);
 	file = fopen(filename, "wb");
 	if (file == NULL) {
-		error("write_file: Unable to open file %s\n", filename);
+		logger(LL_ERROR, "write_file: Unable to open file %s\n", filename);
 		return -1;
 	}
 
@@ -189,7 +98,7 @@ int write_file(const char* filename, const void* data, size_t size) {
 	fclose(file);
 
 	if (bytes != size) {
-		error("ERROR: Unable to write entire file: %s: %d of %d\n", filename, (int)bytes, (int)size);
+		logger(LL_ERROR, "Unable to write entire file: %s: %d of %d\n", filename, (int)bytes, (int)size);
 		return -1;
 	}
 
@@ -203,26 +112,26 @@ int read_file(const char* filename, void** data, size_t* size) {
 	char* buffer = NULL;
 	struct stat fst;
 
-	debug("Reading data from %s\n", filename);
+	logger(LL_DEBUG, "Reading data from %s\n", filename);
 
 	*size = 0;
 	*data = NULL;
 
 	file = fopen(filename, "rb");
 	if (file == NULL) {
-		error("read_file: cannot open %s: %s\n", filename, strerror(errno));
+		logger(LL_ERROR, "read_file: cannot open %s: %s\n", filename, strerror(errno));
 		return -1;
 	}
 
 	if (fstat(fileno(file), &fst) < 0) {
-		error("read_file: fstat: %s\n", strerror(errno));
+		logger(LL_ERROR, "read_file: fstat: %s\n", strerror(errno));
 		return -1;
 	}
 	length = fst.st_size;
 
 	buffer = (char*) malloc(length);
 	if (buffer == NULL) {
-		error("ERROR: Out of memory\n");
+		logger(LL_ERROR, "Out of memory\n");
 		fclose(file);
 		return -1;
 	}
@@ -230,7 +139,7 @@ int read_file(const char* filename, void** data, size_t* size) {
 	fclose(file);
 
 	if (bytes != length) {
-		error("ERROR: Unable to read entire file\n");
+		logger(LL_ERROR, "Unable to read entire file\n");
 		free(buffer);
 		return -1;
 	}
@@ -240,32 +149,476 @@ int read_file(const char* filename, void** data, size_t* size) {
 	return 0;
 }
 
-void debug_plist(plist_t plist) {
-	uint32_t size = 0;
-	char* data = NULL;
-	plist_to_xml(plist, &data, &size);
-	if (size <= MAX_PRINT_LEN)
-		info("printing %i bytes plist:\n%s", size, data);
-	else
-		info("supressed printing %i bytes plist...\n", size);
-	free(data);
+int process_text_lines(const char* text, int maxwidth, struct tuple** lines_out, int* maxlen_out)
+{
+	if (!text) return 0;
+	int len = strlen(text);
+	int numlines = 0;
+	int maxlen = 0;
+	int linestart = 0;
+	int linelen = 0;
+	int lastspace = 0;
+	int maxlines = 8;
+	int count = 0;
+	struct tuple* lines = (struct tuple*)malloc(sizeof(struct tuple) * maxlines);
+	int i = 0;
+	while (i <= len) {
+		int split_line = 0;
+		if ((text[i] & 0xE0) == 0xC0) i += 1;
+		else if ((text[i] & 0xF0) == 0xE0) i += 2;
+		else if ((text[i] & 0xF8) == 0xF0) i += 3;
+		if (i > len) i = len;
+		linelen = i - linestart;
+		if (text[i] == '\0') {
+			split_line = 1;
+		}
+		if (linelen > maxwidth) {
+			if (lastspace > linestart+maxwidth/2+6) {
+				count -= i-lastspace;
+				i = lastspace;
+				linelen = i - linestart;
+				split_line = 1;
+			} else {
+				split_line = 1;
+			}
+		}
+		if ((linelen > 0 && split_line) || text[i] == '\n') {
+			split_line = 0;
+			if (numlines == maxlines) {
+				maxlines += 8;
+				struct tuple* newlines = (struct tuple*)realloc(lines, sizeof(struct tuple) * maxlines);
+				if (!newlines) {
+					printf("FATAL: Out of memory\n");
+					return -1;
+				}
+				lines = newlines;
+			}
+			lines[numlines].idx = linestart;
+			lines[numlines].len = linelen;
+			lines[numlines].plen = count;
+			if (count > maxlen) maxlen = count;
+			numlines++;
+			linestart = i+1;
+			count = 0;
+		}
+		else if (text[i] == ' ') {
+			lastspace = i;
+			count++;
+		} else {
+			count++;
+		}
+		i++;
+	}
+	*lines_out = lines;
+	*maxlen_out = maxlen;
+	return numlines;
 }
 
-void print_progress_bar(double progress) {
-#ifndef WIN32
-	if (info_disabled) return;
-	int i = 0;
-	if(progress < 0) return;
-	if(progress > 100) progress = 100;
-	fprintf((info_stream) ? info_stream : stdout, "\r[");
-	for(i = 0; i < 50; i++) {
-		if(i < progress / 2) fprintf((info_stream) ? info_stream : stdout, "=");
-		else fprintf((info_stream) ? info_stream : stdout, " ");
+void set_banner_funcs(void (*showfunc)(const char*), void (*hidefunc)(void))
+{
+	banner_func = showfunc;
+	banner_hide_func = hidefunc;
+}
+
+void show_banner(const char* text)
+{
+	if (banner_func) {
+		banner_func(text);
+	} else {
+		int i;
+		int maxlen = 0;
+		struct tuple* lines = NULL;
+		int numlines = process_text_lines(text, 74, &lines, &maxlen);
+		printf("%.*s\n", maxlen + 4, STARS);
+		for (i = 0; i < numlines; i++) {
+			printf("* %.*s%.*s *\n", lines[i].len, text + lines[i].idx, maxlen-lines[i].plen, SPACES);
+		}
+		printf("%.*s\n", maxlen + 4, STARS);
+		free(lines);
 	}
-	fprintf((info_stream) ? info_stream : stdout, "] %5.1f%%", progress);
-	if(progress >= 100) fprintf((info_stream) ? info_stream : stdout, "\n");
-	fflush((info_stream) ? info_stream : stdout);
+}
+
+void hide_banner()
+{
+	if (banner_hide_func) {
+		banner_hide_func();
+	}
+}
+
+static int (*prompt_func)(const char* title, const char* text) = NULL;
+
+void set_prompt_func(int (*func)(const char* title, const char* text))
+{
+	prompt_func = func;
+}
+
+int prompt_user(const char* title, const char* text)
+{
+	if (!text) return -1;
+	if (prompt_func) {
+		return prompt_func(title, text);
+	}
+	int i;
+	int result = 0;
+	int maxlen = 0;
+	struct tuple* lines = NULL;
+	int numlines = process_text_lines(text, 74, &lines, &maxlen);
+	int outerlen = maxlen+4;
+	int titlelen = (title) ? strlen(title) : 0;
+	if (titlelen > 0) {
+		int lefttitlelen = (titlelen+4)/2;
+		int leftpounds = outerlen/2 - lefttitlelen;
+		int rightpounds = outerlen-(titlelen+4) - leftpounds;
+		printf("%.*s[ %.*s ]%.*s\n", leftpounds, POUNDS, titlelen, title, rightpounds, POUNDS);
+	} else {
+		printf("%.*s\n", outerlen, POUNDS);
+	}
+	for (i = 0; i < numlines; i++) {
+		printf("%c %.*s%.*s %c\n", *POUNDS, lines[i].len, text + lines[i].idx, maxlen-lines[i].plen, SPACES, *POUNDS);
+	}
+	free(lines);
+	const char* yesmsg = "Type YES and press ENTER to continue, or hit CTRL+C to cancel.";
+	int ylen = strlen(yesmsg);
+	printf("%c %.*s%.*s %c\n", *POUNDS, ylen, yesmsg, maxlen-ylen, SPACES, *POUNDS);
+	printf("%.*s\n", outerlen, POUNDS);
+
+	char input[64];
+	while (1) {
+		printf("> ");
+		fflush(stdout);
+		fflush(stdin);
+		input[0] = '\0';
+		get_user_input(input, 63, 0);
+		if (global_quit_flag) {
+			result = -1;
+			break;
+		}
+		if (*input != '\0' && !strcmp(input, "YES")) {
+			result = 1;
+			break;
+		} else {
+			printf("Invalid input. Please type YES or hit CTRL+C to abort.\n");
+			continue;
+		}
+	}
+	return result;
+}
+
+static void (*update_progress_func)(struct progress_info_entry** list, int count) = NULL;
+static double progress_granularity = 0.001;
+
+/* Reserved tag for the overall/"global" restore-step progress bar, always
+ * shown as the first row of the multi progress display. progress_get_next_tag()
+ * never hands out this value (it starts counting up from 2), so it can't
+ * collide with a dynamically assigned per-component tag. */
+#define GLOBAL_PROGRESS_TAG 1
+
+static void print_multi_progress(struct progress_info_entry** list, int count, struct progress_info_entry* changed);
+
+void set_update_progress_func(void (*func)(struct progress_info_entry** list, int count))
+{
+	update_progress_func = func;
+}
+
+void set_progress_granularity(double granularity)
+{
+	progress_granularity = granularity;
+}
+
+mutex_t prog_mutex;
+struct collection progress_info;
+thread_once_t progress_info_once = THREAD_ONCE_INIT;
+static void _init_progress_info(void)
+{
+	mutex_init(&prog_mutex);
+	collection_init(&progress_info);
+}
+
+uint32_t progress_get_next_tag(void)
+{
+	thread_once(&progress_info_once, _init_progress_info);
+	mutex_lock(&prog_mutex);
+	uint32_t newtag = ++progress_unique_tag;
+	mutex_unlock(&prog_mutex);
+	return newtag;
+}
+
+void progress_reset_tag(void)
+{
+	progress_unique_tag = 1;
+}
+
+/* Notifies the active progress renderer (a custom one registered via
+ * set_update_progress_func(), or the built-in multi-line terminal renderer)
+ * that the progress_info collection has changed. Must be called with
+ * prog_mutex held. */
+static void notify_progress_update(struct progress_info_entry* changed)
+{
+	if (update_progress_func) {
+		update_progress_func((struct progress_info_entry**)(&progress_info)->list, progress_info.capacity);
+	} else {
+		print_multi_progress((struct progress_info_entry**)(&progress_info)->list, progress_info.capacity, changed);
+	}
+}
+
+void register_progress(uint32_t tag, const char* label)
+{
+	thread_once(&progress_info_once, _init_progress_info);
+	if (!label) {
+		return;
+	}
+	mutex_lock(&prog_mutex);
+	struct progress_info_entry* found = NULL;
+	FOREACH(struct progress_info_entry* e, &progress_info) {
+		if (e->tag == tag) {
+			found = e;
+			break;
+		}
+	} ENDFOREACH
+	if (found) {
+		if (strcmp(found->label, label) != 0) {
+			free(found->label);
+			found->label = strdup(label);
+			notify_progress_update(found);
+		}
+		mutex_unlock(&prog_mutex);
+		return;
+	}
+	struct progress_info_entry* newinfo = (struct progress_info_entry*)calloc(1, sizeof(struct progress_info_entry));
+	if (!newinfo) {
+		/* logger() takes the log mutex before calling back into the progress code, so don't hold prog_mutex here */
+		mutex_unlock(&prog_mutex);
+		logger(LL_ERROR, "Out of memory?!\n");
+		exit(1);
+	}
+	newinfo->tag = tag;
+	newinfo->label = strdup(label);
+	newinfo->progress = 0;
+	collection_add(&progress_info, newinfo);
+	notify_progress_update(newinfo);
+	mutex_unlock(&prog_mutex);
+}
+
+void finalize_progress(uint32_t tag)
+{
+	thread_once(&progress_info_once, _init_progress_info);
+	mutex_lock(&prog_mutex);
+	struct progress_info_entry* found = NULL;
+	FOREACH(struct progress_info_entry* e, &progress_info) {
+		if (e->tag == tag) {
+			found = e;
+			break;
+		}
+	} ENDFOREACH
+	if (!found) {
+		mutex_unlock(&prog_mutex);
+		return;
+	}
+	collection_remove(&progress_info, found);
+	free(found->label);
+	free(found);
+	notify_progress_update(NULL);
+	mutex_unlock(&prog_mutex);
+}
+
+void print_progress_bar(const char* prefix, double progress)
+{
+	int i = 0;
+	if (progress < 0) return;
+	if (progress > 1) progress = 1;
+	if (prefix) {
+		printf("\r%s [", prefix);
+	} else {
+		printf("\r[");
+	}
+	for (i = 0; i < 50; i++) {
+		if (i < (int)(progress*50.0)) printf("=");
+		else printf(" ");
+	}
+	printf("] %5.1f%% ", progress*100.0);
+	if (progress >= 1) printf("\n");
+	fflush(stdout);
+}
+
+static int stdout_is_tty(void)
+{
+	static int cached = -1;
+	if (cached < 0) {
+#ifdef WIN32
+		cached = _isatty(_fileno(stdout)) ? 1 : 0;
+		if (cached) {
+			HANDLE h = GetStdHandle(STD_OUTPUT_HANDLE);
+			DWORD mode = 0;
+			if (!GetConsoleMode(h, &mode) || !SetConsoleMode(h, mode | 0x0004 /* ENABLE_VIRTUAL_TERMINAL_PROCESSING */)) {
+				cached = 0;
+			}
+		}
+#else
+		cached = isatty(fileno(stdout)) ? 1 : 0;
 #endif
+	}
+	return cached;
+}
+
+static int terminal_columns(void)
+{
+	int cols = 80;
+#ifdef WIN32
+	CONSOLE_SCREEN_BUFFER_INFO csbi;
+	if (GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi)) {
+		cols = csbi.srWindow.Right - csbi.srWindow.Left + 1;
+	}
+#else
+	struct winsize ws;
+	if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == 0 && ws.ws_col > 0) {
+		cols = ws.ws_col;
+	}
+#endif
+	return cols;
+}
+
+/* Renders "label [====    ]  42.0%", never wider than cols-1 characters so
+ * that the line can't wrap (which would break the cursor-up bookkeeping). */
+static void render_progress_bar_line(const char* label, double progress, int cols)
+{
+	int i;
+	int overhead = 10; /* " [" + "] " + "100.0%" */
+	int maxbar = 50;
+	int bar;
+	int labellen = label ? (int)strlen(label) : 0;
+	if (progress < 0) progress = 0;
+	if (progress > 1) progress = 1;
+	if (cols < 20) cols = 20;
+	if (labellen > cols / 3) labellen = cols / 3;
+	bar = cols - 1 - overhead - labellen;
+	if (bar > maxbar) bar = maxbar;
+	if (bar < 10) bar = 10;
+	if (label) {
+		printf("%.*s [", labellen, label);
+	} else {
+		printf("[");
+	}
+	for (i = 0; i < bar; i++) {
+		putchar((i < (int)(progress*bar)) ? '=' : ' ');
+	}
+	printf("] %5.1f%%", progress*100.0);
+}
+
+/* Number of progress lines currently drawn on the terminal, so the next
+ * refresh knows how far to move the cursor back up. */
+static int progress_lines_drawn = 0;
+/* Set when logger() temporarily erased the bars and they need redrawing. */
+static int progress_suspended = 0;
+
+static void draw_progress_frame(struct progress_info_entry** list, int count)
+{
+	int i;
+	int printed = 0;
+	int cols = terminal_columns();
+
+	if (progress_lines_drawn > 0) {
+		printf("\033[%dA", progress_lines_drawn);
+	}
+	/* the global bar always comes first, followed by the remaining ones */
+	for (i = 0; i < count; i++) {
+		if (!list[i] || list[i]->tag != GLOBAL_PROGRESS_TAG) continue;
+		printf("\r\033[2K");
+		render_progress_bar_line(list[i]->label, list[i]->progress, cols);
+		printf("\n");
+		printed++;
+	}
+	for (i = 0; i < count; i++) {
+		if (!list[i] || list[i]->tag == GLOBAL_PROGRESS_TAG) continue;
+		printf("\r\033[2K");
+		render_progress_bar_line(list[i]->label, list[i]->progress, cols);
+		printf("\n");
+		printed++;
+	}
+	/* erase any lines left over from a previous, larger frame */
+	printf("\033[0J");
+	progress_lines_drawn = printed;
+	fflush(stdout);
+}
+
+/*
+ * Default terminal renderer for the "multi progress" display used when no
+ * custom update_progress_func has been registered. Draws one line per
+ * currently active progress tag: the overall restore-step progress
+ * (GLOBAL_PROGRESS_TAG) first, followed by one line for each component that
+ * is currently being uploaded/verified/etc. Lines come and go as
+ * register_progress() and finalize_progress() are called.
+ *
+ * On a terminal the frame is redrawn in place using ANSI cursor movement.
+ * Log output is kept intact by progress_display_suspend()/_resume(), which
+ * logger() calls around every message.
+ *
+ * When stdout is not a terminal, no escape sequences are used; only the
+ * entry that changed is printed, and only when it is registered or has
+ * advanced into a new 1% step.
+ */
+static void print_multi_progress(struct progress_info_entry** list, int count, struct progress_info_entry* changed)
+{
+	if (stdout_is_tty()) {
+		progress_suspended = 0;
+		draw_progress_frame(list, count);
+		return;
+	}
+	if (!changed) return;
+	if (changed->progress == 0 || changed->progress >= 1.0 || (int)(changed->progress*100) != (int)(changed->lastprog*100)) {
+		printf("%s: %5.1f%%\n", changed->label ? changed->label : "", changed->progress*100.0);
+		fflush(stdout);
+	}
+}
+
+/* Erase the progress bars so that a log message can be printed cleanly.
+ * Used by logger(); the caller must call progress_display_resume() afterwards. */
+void progress_display_suspend(void)
+{
+	thread_once(&progress_info_once, _init_progress_info);
+	mutex_lock(&prog_mutex);
+	if (!update_progress_func && stdout_is_tty() && progress_lines_drawn > 0) {
+		printf("\033[%dA\033[0J", progress_lines_drawn);
+		fflush(stdout);
+		progress_lines_drawn = 0;
+		progress_suspended = 1;
+	}
+	mutex_unlock(&prog_mutex);
+}
+
+void progress_display_resume(void)
+{
+	thread_once(&progress_info_once, _init_progress_info);
+	mutex_lock(&prog_mutex);
+	if (progress_suspended) {
+		progress_suspended = 0;
+		draw_progress_frame((struct progress_info_entry**)(&progress_info)->list, progress_info.capacity);
+	}
+	mutex_unlock(&prog_mutex);
+}
+
+void set_progress(uint32_t tag, double progress)
+{
+	thread_once(&progress_info_once, _init_progress_info);
+	mutex_lock(&prog_mutex);
+	struct progress_info_entry* found = NULL;
+	FOREACH(struct progress_info_entry* e, &progress_info) {
+		if (e->tag == tag) {
+			found = e;
+			break;
+		}
+	} ENDFOREACH
+	if (!found) {
+		mutex_unlock(&prog_mutex);
+		return;
+	}
+	if (progress < 0) progress = 0;
+	if (progress > 1.0) progress = 1.0;
+	found->progress = progress;
+	if (progress == 0 || progress >= 1.0 || fabs(progress - found->lastprog) >= progress_granularity) {
+		notify_progress_update(found);
+		found->lastprog = progress;
+	}
+	mutex_unlock(&prog_mutex);
 }
 
 #define GET_RAND(min, max) ((rand() % (max - min)) + min)
@@ -480,19 +833,40 @@ char *get_temp_filename(const char *prefix)
 	return result;
 }
 
+static const char* restore_step_label(int step)
+{
+	switch (step) {
+		case RESTORE_STEP_UPLOAD_FS: return "Uploading filesystem";
+		case RESTORE_STEP_VERIFY_FS: return "Verifying filesystem";
+		case RESTORE_STEP_FLASH_FW:  return "Flashing firmware";
+		default: return "Overall";
+	}
+}
+
 void idevicerestore_progress(struct idevicerestore_client_t* client, int step, double progress)
 {
-	thread_once(&init_once, _log_init);
-	mutex_lock(&log_mutex);
-	if(client && client->progress_cb) {
+	static int last_global_step = -1;
+
+	if (client && client->progress_cb) {
 		client->progress_cb(step, progress, client->progress_cb_data);
-	} else {
-		// we don't want to be too verbose in regular idevicerestore.
-		if ((step == RESTORE_STEP_UPLOAD_FS) || (step == RESTORE_STEP_VERIFY_FS) || (step == RESTORE_STEP_FLASH_FW) || (step == RESTORE_STEP_UPLOAD_IMG)) {
-			print_progress_bar(100.0 * progress);
-		}
+		return;
 	}
-	mutex_unlock(&log_mutex);
+	// we don't want to be too verbose in regular idevicerestore.
+	// RESTORE_STEP_UPLOAD_IMG is intentionally not handled here: it already
+	// gets its own per-component progress bar (see
+	// restore_send_source_boot_object_v4() and _restore_send_file_data() in
+	// restore.c), shown as one of the additional rows below the overall bar.
+	if ((step == RESTORE_STEP_UPLOAD_FS) || (step == RESTORE_STEP_VERIFY_FS) || (step == RESTORE_STEP_FLASH_FW)) {
+		if (step != last_global_step) {
+			register_progress(GLOBAL_PROGRESS_TAG, restore_step_label(step));
+			last_global_step = step;
+		}
+		set_progress(GLOBAL_PROGRESS_TAG, progress);
+	} else if (step != RESTORE_STEP_UPLOAD_IMG && last_global_step != -1) {
+		// a different step has started; remove the overall bar
+		finalize_progress(GLOBAL_PROGRESS_TAG);
+		last_global_step = -1;
+	}
 }
 
 #ifndef HAVE_STRSEP

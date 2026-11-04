@@ -142,7 +142,10 @@ Only the prerequisites differ and they are described in this section.
   	make \
   	libtool \
   	autoconf \
-  	automake-wrapper
+  	automake-wrapper \
+  	pkg-config \
+  	libcurl-devel \
+  	mingw-w64-x86_64-libzip
   ```
   NOTE: You can use a different shell and different compiler according to your needs. Adapt the above command accordingly.
 
@@ -220,9 +223,29 @@ Configuration for idevicerestore 1.1.0:
   and then 'make install' for installation.
 ```
 
+### Building and installation
+
+If you followed all the steps successfully, and `autogen.sh` or `configure` did not print any errors,
+you are ready to build the project. This is simply done with
+
+```shell
+make
+```
+
+If no errors are emitted you are ready for installation. Depending on whether
+the current user has permissions to write to the destination directory or not,
+you would either run
+```shell
+make install
+```
+_OR_
+```shell
+sudo make install
+```
+
 **Important**
 
-idevicerestore requires a properly installed [usbmuxd](https://github.com/libimobiledevice/usbmuxd.git)
+On Linux, idevicerestore requires a properly installed [usbmuxd](https://github.com/libimobiledevice/usbmuxd.git)
 for the restore procedure. Please make sure that it is either running or
 configured to be started automatically as soon as a device is detected
 in normal and/or restore mode. If properly installed this will be handled
@@ -260,6 +283,15 @@ idevicerestore --help
 man idevicerestore
 ```
 
+### Docker
+
+Build the container with `build.sh` in the docker folder, which will build a
+docker container with the latest source versions of all the required libraries.
+
+Run the container with `run.sh --latest` in the docker folder,
+which will execute `usbmuxd` in the background, and then start `idevicerestore --latest`.
+Any arguments passed to `run.sh` will be passed in to `idevicerestore`.
+
 ## Contributing
 
 We welcome contributions from anyone and are grateful for every pull request!
@@ -280,8 +312,8 @@ Please make sure your contribution adheres to:
 ## Links
 
 * Homepage: https://libimobiledevice.org/
-* Repository: https://git.libimobiledevice.org/idevicerestore.git
-* Repository (Mirror): https://github.com/libimobiledevice/idevicerestore.git
+* Repository: https://github.com/libimobiledevice/idevicerestore.git
+* Repository (Mirror): https://git.libimobiledevice.org/idevicerestore.git
 * Issue Tracker: https://github.com/libimobiledevice/idevicerestore/issues
 * Mailing List: https://lists.libimobiledevice.org/mailman/listinfo/libimobiledevice-devel
 * Twitter: https://twitter.com/libimobiledev
@@ -299,4 +331,4 @@ iPadOS, tvOS, watchOS, and macOS are trademarks of Apple Inc.
 This project is an independent software application and has not been
 authorized, sponsored, or otherwise approved by Apple Inc.
 
-README Updated on: 2024-06-19
+README Updated on: 2025-09-11
