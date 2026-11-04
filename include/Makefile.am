@@ -14,6 +14,7 @@ nobase_dist_include_HEADERS =   idevicerestore/ace3.h \
                                 idevicerestore/limera1n.h \
                                 idevicerestore/limera1n_payload.h \
                                 idevicerestore/locking.h \
+                                idevicerestore/log.h \
                                 idevicerestore/mbn.h \
                                 idevicerestore/normal.h \
                                 idevicerestore/recovery.h \

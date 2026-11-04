@@ -134,11 +134,7 @@ int dfu_send_component(struct idevicerestore_client_t* client, plist_t build_ide
 		tss = client->tss_localpolicy;
 	}
 
-<<<<<<< HEAD
-	unsigned char* component_data = NULL;
-=======
 	void* component_data = NULL;
->>>>>>> ae8cfb4aa919000b283a0fe7db96b1a321a010d3
 	size_t component_size = 0;
 
 	if (strcmp(component, "Ap,LocalPolicy") == 0) {
@@ -169,11 +165,7 @@ int dfu_send_component(struct idevicerestore_client_t* client, plist_t build_ide
 		path = NULL;
 	}
 
-<<<<<<< HEAD
-	unsigned char* data = NULL;
-=======
 	void* data = NULL;
->>>>>>> ae8cfb4aa919000b283a0fe7db96b1a321a010d3
 	size_t size = 0;
 
 	if (personalize_component(client, component, component_data, component_size, tss, &data, &size) < 0) {
@@ -460,13 +452,8 @@ int dfu_enter_recovery(struct idevicerestore_client_t* client, plist_t build_ide
 
 	irecv_get_mode(client->dfu->client, &mode);
 
-<<<<<<< HEAD
-	if (mode != IRECV_K_DFU_MODE && mode != IRECV_K_WTF_MODE) {
-		info("NOTE: device is not in DFU mode, assuming recovery mode.\n");
-=======
-	if (mode != IRECV_K_DFU_MODE) {
+    if (mode != IRECV_K_DFU_MODE && mode != IRECV_K_WTF_MODE) {
 		logger(LL_NOTICE, "device is not in DFU mode, assuming recovery mode.\n");
->>>>>>> ae8cfb4aa919000b283a0fe7db96b1a321a010d3
 		client->mode = MODE_RECOVERY;
 		return 0;
 	}
@@ -664,13 +651,8 @@ int dfu_enter_recovery(struct idevicerestore_client_t* client, plist_t build_ide
 		}
 		return -1;
 	}
-<<<<<<< HEAD
-	debug("Waiting for device to reconnect in recovery mode...\n");
-	cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 120000);
-=======
 	logger(LL_DEBUG, "Waiting for device to reconnect in recovery mode...\n");
-	cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 10000);
->>>>>>> ae8cfb4aa919000b283a0fe7db96b1a321a010d3
+	cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 120000);
 	if (client->mode != MODE_RECOVERY || (client->flags & FLAG_QUIT)) {
 		mutex_unlock(&client->device_event_mutex);
 		if (!(client->flags & FLAG_QUIT)) {

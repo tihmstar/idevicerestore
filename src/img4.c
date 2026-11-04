@@ -24,13 +24,10 @@
 
 #include <idevicerestore/common.h>
 
-<<<<<<< HEAD
 #include <libtatsu/tss.h>
-=======
-#include "common.h"
-#include "img4.h"
-#include "endianness.h"
->>>>>>> ae8cfb4aa919000b283a0fe7db96b1a321a010d3
+
+#include <idevicerestore/img4.h>
+#include <idevicerestore/endianness.h>
 
 #define ASN1_PRIVATE 0xc0
 #define ASN1_PRIMITIVE_TAG 0x1f
@@ -406,11 +403,7 @@ static const char *_img4_get_component_tag(const char *compname)
 	return NULL;
 }
 
-<<<<<<< HEAD
-int img4_stitch_component(const char* component_name, const unsigned char* component_data, size_t component_size, plist_t tss_response, unsigned char** img4_data, unsigned int *img4_size)
-=======
 int img4_stitch_component(const char* component_name, const void* component_data, size_t component_size, plist_t parameters, plist_t tss_response, void** img4_data, size_t *img4_size)
->>>>>>> ae8cfb4aa919000b283a0fe7db96b1a321a010d3
 {
 	unsigned char* magic_header = NULL;
 	unsigned int magic_header_size = 0;

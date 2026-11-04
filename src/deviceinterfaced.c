@@ -20,7 +20,7 @@
  */
 
 #ifdef HAVE_CONFIG_H
-#include "config.h"
+#include <config.h>
 #endif
 
 #include <errno.h>
@@ -35,7 +35,7 @@
 #include <libimobiledevice-glue/thread.h>
 
 #include "deviceinterfaced.h"
-#include "log.h"
+#include "../include/idevicerestore/log.h"
 
 #define DEVICEINTERFACED_LABEL "com.apple.deviceinterfaced"
 #define DEVICEINTERFACED_TARGET "system/" DEVICEINTERFACED_LABEL

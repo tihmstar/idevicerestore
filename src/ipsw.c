@@ -22,7 +22,7 @@
  */
 
 #ifdef HAVE_CONFIG_H
-#include "config.h"
+#include <config.h>
 #endif
 #include <stdio.h>
 #include <stdlib.h>
@@ -104,11 +104,7 @@ int ipsw_print_info(const char* path)
 	if (memcmp(&magic, "PK\x03\x04", 4) == 0) {
 		ipsw_archive_t ipsw = ipsw_open(thepath);
 		size_t rlen = 0;
-<<<<<<< HEAD
-		if (ipsw_extract_to_memory(ipsw, "BuildManifest.plist", (unsigned char**)&plist_buf, &rlen) < 0) {
-=======
 		if (ipsw_extract_to_memory(ipsw, "BuildManifest.plist", &plist_buf, &rlen) < 0) {
->>>>>>> ae8cfb4aa919000b283a0fe7db96b1a321a010d3
 			ipsw_close(ipsw);
 			logger(LL_ERROR, "Failed to extract BuildManifest.plist from IPSW!\n");
 			return -1;
@@ -471,17 +467,10 @@ int ipsw_extract_to_file_with_progress(ipsw_archive_t ipsw, const char* infile, 
 				size = i;
 			count = zip_fread(zfile, buffer, size);
 			if (count < 0) {
-<<<<<<< HEAD
-				zip_error_t *zerr = zip_file_get_error(zfile);
-				int zep = zip_error_code_zip(zerr);
-				int sep = zip_error_code_system(zerr);
-				error("ERROR: zip_fread: %s %d %d\n", infile, zep, sep);
-=======
 				int zep = 0;
 				int sep = 0;
 				zip_file_error_get(zfile, &zep, &sep);
 				logger(LL_ERROR, "zip_fread: %s %d %d\n", infile, zep, sep);
->>>>>>> ae8cfb4aa919000b283a0fe7db96b1a321a010d3
 				ret = -1;
 				break;
 			}
@@ -634,11 +623,7 @@ int ipsw_file_exists(ipsw_archive_t ipsw, const char* infile)
 	return 1;
 }
 
-<<<<<<< HEAD
-int ipsw_extract_to_memory(ipsw_archive_t ipsw, const char* infile, unsigned char** pbuffer, size_t* psize)
-=======
 int ipsw_extract_to_memory(ipsw_archive_t ipsw, const char* infile, void** pbuffer, size_t* psize)
->>>>>>> ae8cfb4aa919000b283a0fe7db96b1a321a010d3
 {
 	size_t size = 0;
 	unsigned char* buffer = NULL;
@@ -707,14 +692,7 @@ int ipsw_extract_to_memory(ipsw_archive_t ipsw, const char* infile, void** pbuff
 		zip_unchange_all(zip);
 		zip_close(zip);
 		if (zr < 0) {
-<<<<<<< HEAD
-			zip_error_t *zerr = zip_file_get_error(zfile);
-			int zep = zip_error_code_zip(zerr);
-			int sep = zip_error_code_system(zerr);
-			error("ERROR: zip_fread: %s %d %d\n", infile, zep, sep);
-=======
 			logger(LL_ERROR, "zip_fread: %s %d %d\n", infile, zep, sep);
->>>>>>> ae8cfb4aa919000b283a0fe7db96b1a321a010d3
 			free(buffer);
 			return -1;
 		} else if (zr != size) {
@@ -938,11 +916,7 @@ int ipsw_extract_send(ipsw_archive_t ipsw, const char* infile, int blocksize, ip
 int ipsw_extract_build_manifest(ipsw_archive_t ipsw, plist_t* buildmanifest, int *tss_enabled)
 {
 	size_t size = 0;
-<<<<<<< HEAD
-	unsigned char* data = NULL;
-=======
 	void* data = NULL;
->>>>>>> ae8cfb4aa919000b283a0fe7db96b1a321a010d3
 
 	*tss_enabled = 0;
 
@@ -972,11 +946,7 @@ int ipsw_extract_build_manifest(ipsw_archive_t ipsw, plist_t* buildmanifest, int
 int ipsw_extract_restore_plist(ipsw_archive_t ipsw, plist_t* restore_plist)
 {
 	size_t size = 0;
-<<<<<<< HEAD
-	unsigned char* data = NULL;
-=======
 	void* data = NULL;
->>>>>>> ae8cfb4aa919000b283a0fe7db96b1a321a010d3
 
 	if (ipsw_extract_to_memory(ipsw, "Restore.plist", &data, &size) == 0) {
 		plist_from_memory((char*)data, size, restore_plist, NULL);

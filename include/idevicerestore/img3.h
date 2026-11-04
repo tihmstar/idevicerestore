@@ -81,11 +81,7 @@ typedef struct {
 	int idx_cert_element;
 } img3_file;
 
-<<<<<<< HEAD:include/idevicerestore/img3.h
-int img3_stitch_component(const char* component_name, const unsigned char* component_data, size_t component_size, const unsigned char* blob, unsigned int blob_size, unsigned char** img3_data, unsigned int *img3_size);
-=======
 int img3_stitch_component(const char* component_name, const void* component_data, size_t component_size, const void* blob, size_t blob_size, void** img3_data, size_t *img3_size);
->>>>>>> ae8cfb4aa919000b283a0fe7db96b1a321a010d3:src/img3.h
 
 #ifdef __cplusplus
 }

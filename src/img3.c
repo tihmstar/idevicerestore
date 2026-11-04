@@ -402,11 +402,7 @@ static int img3_get_data(img3_file* image, unsigned char** pdata, unsigned int* 
 	return 0;
 }
 
-<<<<<<< HEAD
-int img3_stitch_component(const char* component_name, const unsigned char* component_data, size_t component_size, const unsigned char* blob, unsigned int blob_size, unsigned char** img3_data, unsigned int *img3_size)
-=======
 int img3_stitch_component(const char* component_name, const void* component_data, size_t component_size, const void* blob, size_t blob_size, void** img3_data, size_t *img3_size)
->>>>>>> ae8cfb4aa919000b283a0fe7db96b1a321a010d3
 {
 	img3_file *img3 = NULL;
 	unsigned char* outbuf = NULL;

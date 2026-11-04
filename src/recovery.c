@@ -144,7 +144,6 @@ int recovery_set_autoboot(struct idevicerestore_client_t* client, int enable)
 
 int recovery_enter_restore(struct idevicerestore_client_t* client, plist_t build_identity)
 {
-<<<<<<< HEAD
 	if (!client->restore_boot_args){
 		if (client->macos_variant) {
 			client->restore_boot_args = strdup("rd=md0 nand-enable-reformat=1 -progress -restore");
@@ -156,13 +155,6 @@ int recovery_enter_restore(struct idevicerestore_client_t* client, plist_t build
 #endif
 		}
 	}
-=======
-    if (client->macos_variant) {
-        client->restore_boot_args = strdup("rd=md0 nand-enable-reformat=1 -progress -restore");
-    } else if (client->build_major >= 8) {
-        client->restore_boot_args = strdup("rd=md0 nand-enable-reformat=1 -progress");
-    }
->>>>>>> ae8cfb4aa919000b283a0fe7db96b1a321a010d3
 
 	/* upload data to make device boot restore mode */
 
@@ -261,31 +253,34 @@ int recovery_enter_restore(struct idevicerestore_client_t* client, plist_t build
 		}
 	}
 
-<<<<<<< HEAD
 	if (recovery_send_kernelcache_noboot(client, build_identity) < 0) {
-		error("ERROR: Unable to send KernelCache\n");
+        logger(LL_ERROR, "Unable to send KernelCache\n");
 		return -1;
 	}
 
 	mutex_lock(&client->device_event_mutex);
 	if (recovery_boot_kernelcache(client) < 0) {
 		mutex_unlock(&client->device_event_mutex);
-		error("ERROR: Unable to boot KernelCache\n");
+		logger(LL_ERROR, "Unable to boot KernelCache\n");
 		return -1;
 	}
 
-	debug("DEBUG: Waiting for device to disconnect...\n");
-=======
-	mutex_lock(&client->device_event_mutex);
-	if (recovery_send_kernelcache(client, build_identity) < 0) {
-		mutex_unlock(&client->device_event_mutex);
-		logger(LL_ERROR, "Unable to send KernelCache\n");
-		return -1;
-	}
-
-	logger(LL_DEBUG, "Waiting for device to disconnect...\n");
->>>>>>> ae8cfb4aa919000b283a0fe7db96b1a321a010d3
-	cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 30000);
+    logger(LL_DEBUG, "Waiting for device to disconnect...\n");
+  {
+    const char *recovery_disconnect_timeout = getenv("IDEVICERESTORE_RECOVERY_DISCONNECT_TIMEOUT");
+    /*
+      Downgrading iPhone 3G from iOS 4.2.1 with erased baseband (not sure if matters) to iOS 2.0
+      can take up to 3min for the device to disconnect from recovery!
+      Unfortunatelly, if you manually disconnect, then reconnect it will say it's still in recovery.
+      Thus is better to increase the delay to like 5min (300 sec) via env variable, because this is such a nieche usecase.
+    */
+    if (recovery_disconnect_timeout) {
+        unsigned int ms = atoi(recovery_disconnect_timeout) * 1000;
+    	cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, ms);
+    }else{
+    	cond_wait_timeout(&client->device_event_cond, &client->device_event_mutex, 30000);
+    }
+  }
 	if (client->mode == MODE_RECOVERY || (client->flags & FLAG_QUIT)) {
 		mutex_unlock(&client->device_event_mutex);
 		logger(LL_ERROR, "Failed to place device in restore mode\n");
@@ -330,11 +325,7 @@ int recovery_send_ticket(struct idevicerestore_client_t* client)
 int recovery_send_component(struct idevicerestore_client_t* client, plist_t build_identity, const char* component)
 {
 	size_t size = 0;
-<<<<<<< HEAD
-	unsigned char* data = NULL;
-=======
 	void* data = NULL;
->>>>>>> ae8cfb4aa919000b283a0fe7db96b1a321a010d3
 	char* path = NULL;
 	irecv_error_t err = 0;
 
@@ -351,11 +342,7 @@ int recovery_send_component(struct idevicerestore_client_t* client, plist_t buil
 		}
 	}
 
-<<<<<<< HEAD
-	unsigned char* component_data = NULL;
-=======
 	void* component_data = NULL;
->>>>>>> ae8cfb4aa919000b283a0fe7db96b1a321a010d3
 	size_t component_size = 0;
 	int ret = extract_component(client->ipsw, path, &component_data, &component_size);
 	free(path);
@@ -418,16 +405,16 @@ int recovery_send_ibec_nogo(struct idevicerestore_client_t* client, plist_t buil
 	irecv_error_t recovery_error = IRECV_E_SUCCESS;
 
 	if (client->recovery == NULL) {
-		if (recovery_client_new(client) < 0) {
-			return -1;
+		if ((recovery_error = recovery_client_new(client)) < 0) {
+			return recovery_error;
 		}
 	}
 
-	if (recovery_send_component(client, build_identity, component) < 0) {
-		logger(LL_ERROR, "Unable to send %s to device.\n", component);
-		return -1;
+	if ((recovery_error = recovery_send_component(client, build_identity, component)) < 0) {
+        logger(LL_ERROR, "Unable to send %s to device.\n", component);
+		return recovery_error;
 	}
-	return 0;
+	return recovery_error;
 }
 
 int recovery_run_go(struct idevicerestore_client_t* client)
@@ -435,15 +422,11 @@ int recovery_run_go(struct idevicerestore_client_t* client)
 	irecv_error_t recovery_error = IRECV_E_SUCCESS;
 	recovery_error = irecv_send_command_breq(client->recovery->client, "go", 1);
 	if (recovery_error != IRECV_E_SUCCESS) {
-<<<<<<< HEAD
-		error("ERROR: Unable to run 'go'\n");
-=======
-		logger(LL_ERROR, "Unable to execute %s\n", component);
->>>>>>> ae8cfb4aa919000b283a0fe7db96b1a321a010d3
-		return -1;
+		logger(LL_ERROR, "Unable to run 'go'\n");
+		return recovery_error;
 	}
 	irecv_usb_control_transfer(client->recovery->client, 0x21, 1, 0, 0, 0, 0, 5000);
-	return 0;
+	return recovery_error;
 }
 
 int recovery_send_applelogo(struct idevicerestore_client_t* client, plist_t build_identity)
@@ -457,29 +440,29 @@ int recovery_send_applelogo(struct idevicerestore_client_t* client, plist_t buil
 
 	logger(LL_INFO, "Sending %s...\n", component);
 	if (client->recovery == NULL) {
-		if (recovery_client_new(client) < 0) {
-			return -1;
+		if ((recovery_error = recovery_client_new(client)) < 0) {
+			return recovery_error;
 		}
 	}
 
-	if (recovery_send_component(client, build_identity, component) < 0) {
-		logger(LL_ERROR, "Unable to send %s to device.\n", component);
-		return -1;
+	if ((recovery_error = recovery_send_component(client, build_identity, component)) < 0) {
+        logger(LL_ERROR, "Unable to send %s to device.\n", component);
+		return recovery_error;
 	}
 
 	recovery_error = irecv_send_command(client->recovery->client, "setpicture 4");
 	if (recovery_error != IRECV_E_SUCCESS) {
-		logger(LL_ERROR, "Unable to set %s\n", component);
-		return -1;
+        logger(LL_ERROR, "Unable to set %s\n", component);
+		return recovery_error;
 	}
 
 	recovery_error = irecv_send_command(client->recovery->client, "bgcolor 0 0 0");
 	if (recovery_error != IRECV_E_SUCCESS) {
-		logger(LL_ERROR, "Unable to display %s\n", component);
-		return -1;
+        logger(LL_ERROR, "Unable to display %s\n", component);
+		return recovery_error;
 	}
 
-	return 0;
+	return recovery_error;
 }
 
 int recovery_send_loaded_by_iboot(struct idevicerestore_client_t* client, plist_t build_identity)
@@ -536,8 +519,8 @@ int recovery_send_ramdisk(struct idevicerestore_client_t* client, plist_t build_
 	irecv_error_t recovery_error = IRECV_E_SUCCESS;
 
 	if(client->recovery == NULL) {
-		if (recovery_client_new(client) < 0) {
-			return -1;
+		if ((recovery_error = recovery_client_new(client)) < 0) {
+			return recovery_error;
 		}
 	}
 
@@ -547,22 +530,22 @@ int recovery_send_ramdisk(struct idevicerestore_client_t* client, plist_t build_
 	free(value);
 	value = NULL;
 
-	if (recovery_send_component(client, build_identity, component) < 0) {
-		logger(LL_ERROR, "Unable to send %s to device.\n", component);
-		return -1;
+	if ((recovery_error = recovery_send_component(client, build_identity, component)) < 0) {
+        logger(LL_ERROR, "Unable to send %s to device.\n", component);
+		return recovery_error;
 	}
 
 	irecv_send_command(client->recovery->client, "getenv ramdisk-delay");
 
 	recovery_error = irecv_send_command(client->recovery->client, "ramdisk");
 	if (recovery_error != IRECV_E_SUCCESS) {
-		logger(LL_ERROR, "Unable to execute %s\n", component);
-		return -1;
+        logger(LL_ERROR, "Unable to execute %s\n", component);
+		return recovery_error;
 	}
 
 	sleep(2);
 
-	return 0;
+	return recovery_error;
 }
 
 int recovery_send_kernelcache_noboot(struct idevicerestore_client_t* client, plist_t build_identity)
@@ -571,19 +554,19 @@ int recovery_send_kernelcache_noboot(struct idevicerestore_client_t* client, pli
 	irecv_error_t recovery_error = IRECV_E_SUCCESS;
 
 	if (client->recovery == NULL) {
-		if (recovery_client_new(client) < 0) {
-			return -1;
+		if ((recovery_error = recovery_client_new(client)) < 0) {
+			return recovery_error;
 		}
 	}
 
-	if (recovery_send_component(client, build_identity, component) < 0) {
-		logger(LL_ERROR, "Unable to send %s to device.\n", component);
-		return -1;
+	if ((recovery_error = recovery_send_component(client, build_identity, component)) < 0) {
+        logger(LL_ERROR, "Unable to send %s to device.\n", component);
+		return recovery_error;
 	}
 
 	irecv_usb_control_transfer(client->recovery->client, 0x21, 1, 0, 0, 0, 0, 5000);
 
-	return 0;
+	return recovery_error;
 }
 
 int recovery_boot_kernelcache(struct idevicerestore_client_t* client)
@@ -598,11 +581,7 @@ int recovery_boot_kernelcache(struct idevicerestore_client_t* client)
 
 	recovery_error = irecv_send_command_breq(client->recovery->client, "bootx", 1);
 	if (recovery_error != IRECV_E_SUCCESS) {
-<<<<<<< HEAD
-		error("ERROR: Unable to execute 'bootx'\n");
-=======
-		logger(LL_ERROR, "Unable to execute %s\n", component);
->>>>>>> ae8cfb4aa919000b283a0fe7db96b1a321a010d3
+        logger(LL_ERROR,"Unable to execute 'bootx'\n");
 		return -1;
 	}
 

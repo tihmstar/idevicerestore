@@ -193,11 +193,23 @@ AC_ARG_ENABLE([asan],
             [asan_build=true],
             [asan_build=false])
 
+AC_ARG_ENABLE([debug],
+            [AS_HELP_STRING([--enable-debug],
+            [enable debug build(default is no)])],
+            [debug_build=true],
+            [debug_build=false])
+
 if test "$asan_build" = true; then
-  echo "*** Note: debug build requested ***"
-  CFLAGS+=" -g -O0 -fsanitize=address -fno-omit-frame-pointer -fsanitize-address-use-after-scope"
-  CXXFLAGS+=" -g -O0 -fsanitize=address -fno-omit-frame-pointer -fsanitize-address-use-after-scope"
+  echo "*** Note: asan build requested ***"
+  debug_build=true;
+  CFLAGS+=" -fsanitize=address -fno-omit-frame-pointer -fsanitize-address-use-after-scope"
 fi
+
+if test "$debug_build" = true; then
+  echo "*** Note: debug build requested ***"
+  CFLAGS+=" -g -O0 -Wall -Werror -Wno-format -Wno-deprecated-declarations"
+fi
+
 
 AC_SUBST(GLOBAL_CFLAGS)
 AC_SUBST(AC_LDFLAGS)
@@ -222,6 +234,8 @@ Configuration for $PACKAGE $VERSION:
 -------------------------------------------
 
   Install prefix: .........: $prefix
+  ASAN build: .............: $asan_build
+  debug build: ............: $debug_build
 
   Now type 'make' to build $PACKAGE $VERSION,
   and then 'make install' for installation.

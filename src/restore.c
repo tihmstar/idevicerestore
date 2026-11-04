@@ -22,7 +22,7 @@
  */
 
 #ifdef HAVE_CONFIG_H
-#include "config.h"
+#include <config.h>
 #endif
 #include <limits.h>
 #include <stdio.h>
@@ -405,21 +405,16 @@ static int restore_is_current_device(struct idevicerestore_client_t* client, con
 		return 0;
 	}
 	if (!client->ecid) {
-<<<<<<< HEAD
 		if (client->device && client->device->chip_id == 0x8900){
 			/*
 				iOS 1 restored doesn't tell us the device ECID, nor do we actually know it
 			*/
-			debug("%s: Skipping ECID check for 0x8900 device %s\n", __func__, udid);
+			logger(LL_DEBUG, "%s: Skipping ECID check for 0x8900 device %s\n", __func__, udid);
 			return 1;
 		}else{
-			error("ERROR: %s: no ECID given in client data\n", __func__);
+            logger(LL_ERROR, "%s: no ECID given in client data\n", __func__);
 			return 0;
 		}		
-=======
-		logger(LL_ERROR, "%s: no ECID given in client data\n", __func__);
-		return 0;
->>>>>>> ae8cfb4aa919000b283a0fe7db96b1a321a010d3
 	}
 
 	idevice_t device = NULL;
@@ -463,7 +458,7 @@ static int restore_is_current_device(struct idevicerestore_client_t* client, con
 				This info isn't available pre-iOS 3, so whatever
 				Just don't restore multiple pre-iOS 3 devices at once ;)
 			*/
-			debug("%s: pre-iOS 3 restore detected, continuing restore without ecid check!", __func__);
+			logger(LL_DEBUG, "%s: pre-iOS 3 restore detected, continuing restore without ecid check!", __func__);
 			return 1;
 		}
 		return 0;
@@ -491,11 +486,10 @@ static int restore_is_current_device(struct idevicerestore_client_t* client, con
 		plist_get_uint_val(node, &this_ecid);
 	}
 
-<<<<<<< HEAD
 	plist_free(hwinfo); hwinfo = NULL;
 
 	if (this_ecid == -1) {
-		error("ERROR: %s: Unable to get ECID from restored\n", __func__);
+		logger(LL_ERROR, "%s: Unable to get ECID from restored\n", __func__);
 		if (!client->version || (client->version[0] != '1' && client->version[0] != '2')) return 0;
 		/*
 			UniqueChipID isn't available pre-iOS 3, so whatever
@@ -505,13 +499,8 @@ static int restore_is_current_device(struct idevicerestore_client_t* client, con
 		*/
 		if (this_cpid != -1 && this_cpid != client->device->chip_id)  return 0;
 		if (this_bdid != -1 && this_bdid != client->device->board_id)  return 0;
-		debug("%s: pre-iOS 3 restore detected, continuing restore without ecid check!", __func__);
+		logger(LL_DEBUG, "%s: pre-iOS 3 restore detected, continuing restore without ecid check!", __func__);
 		return 1;
-=======
-	if (this_ecid == 0) {
-		logger(LL_ERROR, "%s: Unable to get ECID from restored\n", __func__);
-		return 0;
->>>>>>> ae8cfb4aa919000b283a0fe7db96b1a321a010d3
 	}
 
 	return (this_ecid == client->ecid);
@@ -531,13 +520,8 @@ int restore_open_with_timeout(struct idevicerestore_client_t* client)
 		return -1;
 	}
 
-<<<<<<< HEAD
 	if (client->ecid == 0 && (!client->device || client->device->chip_id != 0x8900)) {
-		error("ERROR: no ECID in client data!\n");
-=======
-	if (client->ecid == 0) {
 		logger(LL_ERROR, "no ECID in client data!\n");
->>>>>>> ae8cfb4aa919000b283a0fe7db96b1a321a010d3
 		return -1;
 	}
 
@@ -1539,11 +1523,7 @@ int restore_send_streamed_image_decryption_key(struct idevicerestore_client_t* c
 int restore_send_component(struct idevicerestore_client_t* client, plist_t message, const char* component, const char* component_name)
 {
 	size_t size = 0;
-<<<<<<< HEAD
-	unsigned char* data = NULL;
-=======
 	void* data = NULL;
->>>>>>> ae8cfb4aa919000b283a0fe7db96b1a321a010d3
 	char* path = NULL;
 	plist_t blob = NULL;
 	plist_t dict = NULL;
@@ -1572,26 +1552,24 @@ int restore_send_component(struct idevicerestore_client_t* client, plist_t messa
 		}
 	}
 
-<<<<<<< HEAD
-	unsigned char* component_data = NULL;
-=======
-	void* component_data = NULL;
->>>>>>> ae8cfb4aa919000b283a0fe7db96b1a321a010d3
-	size_t component_size = 0;
-	int ret = extract_component(client->ipsw, path, &component_data, &component_size);
-	free(path);
-	path = NULL;
-	if (ret < 0) {
-		logger(LL_ERROR, "Unable to extract component %s\n", component);
-		return -1;
-	}
+	if (!client->restore_custom_component_function || client->restore_custom_component_function(client, component, &data, &size)){
+    void* component_data = NULL;
+    size_t component_size = 0;
+		int ret = extract_component(client->ipsw, path, &component_data, &component_size);
+		free(path);
+		path = NULL;
+		if (ret < 0) {
+			logger(LL_ERROR, "Unable to extract component %s\n", component);
+			return -1;
+		}
 
-	ret = personalize_component(client, component, component_data, component_size, client->tss, &data, &size);
-	free(component_data);
-	component_data = NULL;
-	if (ret < 0) {
-		logger(LL_ERROR, "Unable to get personalized component %s\n", component);
-		return -1;
+		ret = personalize_component(client, component, component_data, component_size, client->tss, &data, &size);
+		free(component_data);
+		component_data = NULL;
+		if (ret < 0) {
+			logger(LL_ERROR, "Unable to get personalized component %s\n", component);
+			return -1;
+		}
 	}
 
 	dict = plist_new_dict();
@@ -1629,15 +1607,6 @@ int restore_send_nor(struct idevicerestore_client_t* client, plist_t message)
 	char firmware_path[PATH_MAX - 9];
 	char manifest_file[PATH_MAX];
 	size_t manifest_size = 0;
-<<<<<<< HEAD
-	unsigned char* manifest_data = NULL;
-	char firmware_filename[PATH_MAX];
-	size_t llb_size = 0;
-	unsigned char* llb_data = NULL;
-	plist_t dict = NULL;
-	size_t nor_size = 0;
-	unsigned char* nor_data = NULL;
-=======
 	void* manifest_data = NULL;
 	char firmware_filename[PATH_MAX];
 	size_t llb_size = 0;
@@ -1645,7 +1614,6 @@ int restore_send_nor(struct idevicerestore_client_t* client, plist_t message)
 	plist_t dict = NULL;
 	size_t nor_size = 0;
 	void* nor_data = NULL;
->>>>>>> ae8cfb4aa919000b283a0fe7db96b1a321a010d3
 	plist_t norimage = NULL;
 	plist_t firmware_files = NULL;
 	int flash_version_1 = 0;
@@ -1759,46 +1727,26 @@ int restore_send_nor(struct idevicerestore_client_t* client, plist_t message)
 	}
 
 	const char* component = "LLB";
-<<<<<<< HEAD
-	unsigned char* component_data = NULL;
-	size_t component_size = 0;
-	int ret = 0;
-	if (!client->restore_custom_component_function || client->restore_custom_component_function(client, "LLB", &llb_data, &llb_size)){
-		ret = extract_component(client->ipsw, llb_path, &component_data, &component_size);
-		free(llb_path);
-		if (ret < 0) {
-			error("ERROR: Unable to extract component: %s\n", component);
-			return -1;
-		}
-
-		ret = personalize_component(component, component_data, component_size, client->tss, &llb_data, &llb_size);
-		free(component_data);
-		component_data = NULL;
-		component_size = 0;
-		if (ret < 0) {
-			error("ERROR: Unable to get personalized component: %s\n", component);
-			return -1;
-		}
-=======
 	void* component_data = NULL;
 	size_t component_size = 0;
-	int ret = extract_component(client->ipsw, llb_path, &component_data, &component_size);
-	free(llb_path);
-	if (ret < 0) {
-		logger(LL_ERROR, "Unable to extract component: %s\n", component);
-		return -1;
-	}
+	int ret = 0;
+    if (!client->restore_custom_component_function || client->restore_custom_component_function(client, "LLB", &llb_data, &llb_size)){
+      ret = extract_component(client->ipsw, llb_path, &component_data, &component_size);
+      free(llb_path);
+      if (ret < 0) {
+        logger(LL_ERROR, "Unable to extract component: %s\n", component);
+        return -1;
+      }
 
-	ret = personalize_component(client, component, component_data, component_size, client->tss, &llb_data, &llb_size);
-	free(component_data);
-	component_data = NULL;
-	component_size = 0;
-	if (ret < 0) {
-		logger(LL_ERROR, "Unable to get personalized component: %s\n", component);
-		return -1;
->>>>>>> ae8cfb4aa919000b283a0fe7db96b1a321a010d3
-	}
-	
+    ret = personalize_component(client, component, component_data, component_size, client->tss, &llb_data, &llb_size);
+    free(component_data);
+    component_data = NULL;
+    component_size = 0;
+    if (ret < 0) {
+      logger(LL_ERROR, "Unable to get personalized component: %s\n", component);
+      return -1;
+    }
+  }
 
 	dict = plist_new_dict();
 	plist_dict_set_item(dict, "LlbImageData", plist_new_data((char*)llb_data, llb_size));
@@ -1841,7 +1789,6 @@ int restore_send_nor(struct idevicerestore_client_t* client, plist_t message)
 		}
 
 		component_data = NULL;
-<<<<<<< HEAD
 		size_t component_size = 0;
 		
 		if (!client->restore_custom_component_function || client->restore_custom_component_function(client, component, &nor_data, &nor_size)){
@@ -1850,42 +1797,21 @@ int restore_send_nor(struct idevicerestore_client_t* client, plist_t message)
 				free(comp);
 				free(comppath);
 				plist_free(firmware_files);
-				error("ERROR: Unable to extract component: %s\n", component);
+				logger(LL_ERROR, "Unable to extract component: %s\n", component);
 				return -1;
 			}
-			if (personalize_component(component, component_data, component_size, client->tss, &nor_data, &nor_size) < 0) {
+			if (personalize_component(client, component, component_data, component_size, client->tss, &nor_data, &nor_size) < 0) {
 				free(iter);
 				free(comp);
 				free(comppath);
 				free(component_data);
 				plist_free(firmware_files);
-				error("ERROR: Unable to get personalized component: %s\n", component);
+				logger(LL_ERROR, "Unable to get personalized component: %s\n", component);
 				return -1;
 			}
 			free(component_data);
 			component_data = NULL;
 			component_size = 0;
-=======
-		component_size = 0;
-
-		if (extract_component(client->ipsw, comppath, &component_data, &component_size) < 0) {
-			free(iter);
-			free(comp);
-			free(comppath);
-			plist_free(firmware_files);
-			logger(LL_ERROR, "Unable to extract component: %s\n", component);
-			return -1;
-		}
-
-		if (personalize_component(client, component, component_data, component_size, client->tss, &nor_data, &nor_size) < 0) {
-			free(iter);
-			free(comp);
-			free(comppath);
-			free(component_data);
-			plist_free(firmware_files);
-			logger(LL_ERROR, "Unable to get personalized component: %s\n", component);
-			return -1;
->>>>>>> ae8cfb4aa919000b283a0fe7db96b1a321a010d3
 		}
 
 		if (flash_version_1) {
@@ -1909,35 +1835,12 @@ int restore_send_nor(struct idevicerestore_client_t* client, plist_t message)
 	plist_free(firmware_files);
 	plist_dict_set_item(dict, "NorImageData", norimage);
 
-<<<<<<< HEAD
-	unsigned char* personalized_data = NULL;
-=======
 	void* personalized_data = NULL;
->>>>>>> ae8cfb4aa919000b283a0fe7db96b1a321a010d3
 	size_t personalized_size = 0;
 
 	if (build_identity_has_component(client->restore->build_identity, "RestoreSEP") &&
 	    build_identity_get_component_path(client->restore->build_identity, "RestoreSEP", &restore_sep_path) == 0) {
 		component = "RestoreSEP";
-<<<<<<< HEAD
-
-		if (!client->restore_custom_component_function || client->restore_custom_component_function(client, component, &personalized_data, &personalized_size)){
-			ret = extract_component(client->ipsw, restore_sep_path, &component_data, &component_size);
-			free(restore_sep_path);
-			if (ret < 0) {
-				error("ERROR: Unable to extract component: %s\n", component);
-				return -1;
-			}
-
-			ret = personalize_component(component, component_data, component_size, client->tss, &personalized_data, &personalized_size);
-			free(component_data);
-			component_data = NULL;
-			component_size = 0;
-			if (ret < 0) {
-				error("ERROR: Unable to get personalized component: %s\n", component);
-				return -1;
-			}
-=======
 		ret = extract_component(client->ipsw, restore_sep_path, &component_data, &component_size);
 		free(restore_sep_path);
 		if (ret < 0) {
@@ -1952,7 +1855,6 @@ int restore_send_nor(struct idevicerestore_client_t* client, plist_t message)
 		if (ret < 0) {
 			logger(LL_ERROR, "Unable to get personalized component: %s\n", component);
 			return -1;
->>>>>>> ae8cfb4aa919000b283a0fe7db96b1a321a010d3
 		}
 
 		plist_dict_set_item(dict, "RestoreSEPImageData", plist_new_data((char*)personalized_data, personalized_size));
@@ -1964,25 +1866,6 @@ int restore_send_nor(struct idevicerestore_client_t* client, plist_t message)
 	if (build_identity_has_component(client->restore->build_identity, "SEP") &&
 	    build_identity_get_component_path(client->restore->build_identity, "SEP", &sep_path) == 0) {
 		component = "SEP";
-<<<<<<< HEAD
-
-		if (!client->restore_custom_component_function || client->restore_custom_component_function(client, component, &personalized_data, &personalized_size)){
-			ret = extract_component(client->ipsw, sep_path, &component_data, &component_size);
-			free(sep_path);
-			if (ret < 0) {
-				error("ERROR: Unable to extract component: %s\n", component);
-				return -1;
-			}
-
-			ret = personalize_component(component, component_data, component_size, client->tss, &personalized_data, &personalized_size);
-			free(component_data);
-			component_data = NULL;
-			component_size = 0;
-			if (ret < 0) {
-				error("ERROR: Unable to get personalized component: %s\n", component);
-				return -1;
-			}
-=======
 		ret = extract_component(client->ipsw, sep_path, &component_data, &component_size);
 		free(sep_path);
 		if (ret < 0) {
@@ -1997,7 +1880,6 @@ int restore_send_nor(struct idevicerestore_client_t* client, plist_t message)
 		if (ret < 0) {
 			logger(LL_ERROR, "Unable to get personalized component: %s\n", component);
 			return -1;
->>>>>>> ae8cfb4aa919000b283a0fe7db96b1a321a010d3
 		}
 
 		plist_dict_set_item(dict, "SEPImageData", plist_new_data((char*)personalized_data, personalized_size));
@@ -2447,15 +2329,10 @@ static int restore_send_baseband_data(struct idevicerestore_client_t* client, pl
 	char* bbfwtmp = NULL;
 	plist_t dict = NULL;
 
-<<<<<<< HEAD
     plist_t build_identity = (client->bbfw_buildidentity) ? client->bbfw_buildidentity : client->restore->build_identity;
 
 	if (!client || !client->restore || !build_identity) {
-		error("ERROR: %s: idevicerestore client not initialized?!\n", __func__);
-=======
-	if (!client || !client->restore || !client->restore->build_identity) {
 		logger(LL_ERROR, "%s: idevicerestore client not initialized?!\n", __func__);
->>>>>>> ae8cfb4aa919000b283a0fe7db96b1a321a010d3
 		return -1;
 	}
 
@@ -2561,33 +2438,27 @@ static int restore_send_baseband_data(struct idevicerestore_client_t* client, pl
 		strcpy(bbfwtmp + 5 + l, ".tmp");
 		logger(LL_WARNING, "Could not generate temporary filename, using %s in current directory\n", bbfwtmp);
 	}
-<<<<<<< HEAD
 	if (client->bbfwpath){
 		char *tmpbuf = NULL;
 		uint64_t tmpbufSize = 0;
 		int ok = 0;
 		ok = buffer_read_from_filename(client->bbfwpath, &tmpbuf, &tmpbufSize);
 		if (!ok){
-			error("ERROR: Failed to read baseband file at '%s'\n",client->bbfwpath);
+			logger(LL_ERROR, "Failed to read baseband file at '%s'\n",client->bbfwpath);
 			if (tmpbuf) free(tmpbuf);
 			goto leave;
 		}
 		ok = buffer_write_to_filename(bbfwtmp, tmpbuf, tmpbufSize);
 		if (tmpbuf) free(tmpbuf);
 		if (!ok){
-			error("ERROR: Failed to write baseband temp file to '%s'\n",bbfwtmp);
+			logger(LL_ERROR, "Failed to write baseband temp file to '%s'\n",bbfwtmp);
 			goto leave;
 		}
 	}else{
 		if (ipsw_extract_to_file(client->ipsw, bbfwpath, bbfwtmp) != 0) {
-			error("ERROR: Unable to extract baseband firmware from ipsw\n");
+			logger(LL_ERROR, "Unable to extract baseband firmware from ipsw\n");
 			goto leave;
 		}
-=======
-	if (ipsw_extract_to_file(client->ipsw, bbfwpath, bbfwtmp) != 0) {
-		logger(LL_ERROR, "Unable to extract baseband firmware from ipsw\n");
-		goto leave;
->>>>>>> ae8cfb4aa919000b283a0fe7db96b1a321a010d3
 	}
 
 	if (bb_nonce && !client->restore->bbtss) {
@@ -2750,15 +2621,9 @@ static int restore_send_image_data(struct idevicerestore_client_t *client, plist
 						plist_array_append_item(matched_images, plist_new_string(component));
 					} else if (!image_name || !strcmp(image_name, component)) {
 						char *path = NULL;
-<<<<<<< HEAD
-						unsigned char* data = NULL;
-						size_t size = 0;
-						unsigned char* component_data = NULL;
-=======
 						void* data = NULL;
 						size_t size = 0;
 						void* component_data = NULL;
->>>>>>> ae8cfb4aa919000b283a0fe7db96b1a321a010d3
 						size_t component_size = 0;
 						int ret = -1;
 
@@ -2870,11 +2735,7 @@ static plist_t restore_get_se_firmware_data(struct idevicerestore_client_t* clie
 {
 	const char *comp_name = NULL;
 	char *comp_path = NULL;
-<<<<<<< HEAD
-	unsigned char* component_data = NULL;
-=======
 	void* component_data = NULL;
->>>>>>> ae8cfb4aa919000b283a0fe7db96b1a321a010d3
 	size_t component_size = 0;
 	plist_t parameters = NULL;
 	plist_t request = NULL;
@@ -2988,15 +2849,9 @@ static plist_t restore_get_savage_firmware_data(struct idevicerestore_client_t* 
 {
 	char *comp_name = NULL;
 	char *comp_path = NULL;
-<<<<<<< HEAD
-	unsigned char* component_data = NULL;
-	size_t component_size = 0;
-	unsigned char* component_data_tmp = NULL;
-=======
 	void* component_data = NULL;
 	size_t component_size = 0;
 	void* component_data_tmp = NULL;
->>>>>>> ae8cfb4aa919000b283a0fe7db96b1a321a010d3
 	plist_t parameters = NULL;
 	plist_t request = NULL;
 	plist_t response = NULL;
@@ -3105,11 +2960,7 @@ static plist_t restore_get_yonkers_firmware_data(struct idevicerestore_client_t*
 {
 	char *comp_name = NULL;
 	char *comp_path = NULL;
-<<<<<<< HEAD
-	unsigned char* component_data = NULL;
-=======
 	void* component_data = NULL;
->>>>>>> ae8cfb4aa919000b283a0fe7db96b1a321a010d3
 	size_t component_size = 0;
 	plist_t parameters = NULL;
 	plist_t request = NULL;
@@ -3211,11 +3062,7 @@ static plist_t restore_get_rose_firmware_data(struct idevicerestore_client_t* cl
 {
 	char *comp_name = NULL;
 	char *comp_path = NULL;
-<<<<<<< HEAD
-	unsigned char* component_data = NULL;
-=======
 	void* component_data = NULL;
->>>>>>> ae8cfb4aa919000b283a0fe7db96b1a321a010d3
 	size_t component_size = 0;
 	ftab_t ftab = NULL;
 	ftab_t rftab = NULL;
@@ -3344,7 +3191,7 @@ static plist_t restore_get_rose_firmware_data(struct idevicerestore_client_t* cl
 			logger(LL_WARNING, "Unexpected tag 0x%08x, expected 0x%08x; continuing anyway.\n", ftag, 'rkos');
 		}
 
-		if (ftab_get_entry_ptr(rftab, 'rrko', &component_data, (unsigned int*)&component_size) == 0) {
+		if (ftab_get_entry_ptr(rftab, 'rrko', &component_data, &component_size) == 0) {
 			ftab_add_entry(ftab, 'rrko', component_data, component_size);
 		} else {
 			logger(LL_ERROR, "Could not find 'rrko' entry in ftab. This will probably break things.\n");
@@ -3356,7 +3203,7 @@ static plist_t restore_get_rose_firmware_data(struct idevicerestore_client_t* cl
 		logger(LL_NOTICE, "Build identity does not have a '%s' component.\n", comp_name);
 	}
 
-	ftab_write(ftab, &component_data, (unsigned int*)&component_size);
+	ftab_write(ftab, &component_data, &component_size);
 	ftab_free(ftab);
 
 	plist_dict_set_item(response, "FirmwareData", plist_new_data((char*)component_data, component_size));
@@ -3371,11 +3218,7 @@ static plist_t restore_get_veridian_firmware_data(struct idevicerestore_client_t
 {
 	char *comp_name = "BMU,FirmwareMap";
 	char *comp_path = NULL;
-<<<<<<< HEAD
-	unsigned char* component_data = NULL;
-=======
 	void* component_data = NULL;
->>>>>>> ae8cfb4aa919000b283a0fe7db96b1a321a010d3
 	size_t component_size = 0;
 	plist_t parameters = NULL;
 	plist_t request = NULL;
@@ -3549,11 +3392,7 @@ static plist_t restore_get_tcon_firmware_data(struct idevicerestore_client_t* cl
 {
 	char *comp_name = "Baobab,TCON";
 	char *comp_path = NULL;
-<<<<<<< HEAD
-	unsigned char* component_data = NULL;
-=======
 	void* component_data = NULL;
->>>>>>> ae8cfb4aa919000b283a0fe7db96b1a321a010d3
 	size_t component_size = 0;
 	plist_t parameters = NULL;
 	plist_t request = NULL;
@@ -3641,11 +3480,7 @@ static plist_t restore_get_timer_firmware_data(struct idevicerestore_client_t* c
 {
 	char comp_name[64];
 	char *comp_path = NULL;
-<<<<<<< HEAD
-	unsigned char* component_data = NULL;
-=======
 	void* component_data = NULL;
->>>>>>> ae8cfb4aa919000b283a0fe7db96b1a321a010d3
 	size_t component_size = 0;
 	ftab_t ftab = NULL;
 	ftab_t rftab = NULL;
@@ -3826,8 +3661,8 @@ static plist_t restore_get_timer_firmware_data(struct idevicerestore_client_t* c
 			logger(LL_WARNING, "Unexpected tag 0x%08x, expected 0x%08x; continuing anyway.\n", ftag, 'rkos');
 		}
 
-		if (ftab_get_entry_ptr(rftab, 'rrko', &component_data, (unsigned int*)&component_size) == 0) {
-			ftab_add_entry(ftab, 'rrko', component_data, (unsigned int)component_size);
+		if (ftab_get_entry_ptr(rftab, 'rrko', &component_data, &component_size) == 0) {
+			ftab_add_entry(ftab, 'rrko', component_data, component_size);
 		} else {
 			logger(LL_ERROR, "Could not find 'rrko' entry in ftab. This will probably break things.\n");
 		}
@@ -3838,7 +3673,7 @@ static plist_t restore_get_timer_firmware_data(struct idevicerestore_client_t* c
 		logger(LL_NOTICE, "Build identity does not have a '%s' component.\n", comp_name);
 	}
 
-	ftab_write(ftab, &component_data, (unsigned int*)&component_size);
+	ftab_write(ftab, &component_data, &component_size);
 	ftab_free(ftab);
 
 	plist_dict_set_item(response, "FirmwareData", plist_new_data((char*)component_data, component_size));
@@ -4290,11 +4125,7 @@ static int restore_bootability_send_one(void *ctx, ipsw_archive_t ipsw, const ch
 
 	logger(LL_DEBUG, "BootabilityBundle send m=%07o s=%10ld %s\n", stat->st_mode, (long)stat->st_size, subpath);
 
-<<<<<<< HEAD
-	unsigned char *buf = NULL;
-=======
 	void *buf = NULL;
->>>>>>> ae8cfb4aa919000b283a0fe7db96b1a321a010d3
 	size_t size = 0;
 
 	if ((S_ISLNK(stat->st_mode) || S_ISREG(stat->st_mode)) && stat->st_size != 0) {
@@ -4470,11 +4301,7 @@ static char* extract_global_manifest_path(plist_t build_identity, const char* va
 	return ticket_path;
 }
 
-<<<<<<< HEAD
-int extract_global_manifest(struct idevicerestore_client_t* client, plist_t build_identity, char *variant, unsigned char** pbuffer, size_t* psize)
-=======
 int extract_global_manifest(struct idevicerestore_client_t* client, plist_t build_identity, char *variant, void** pbuffer, size_t* psize)
->>>>>>> ae8cfb4aa919000b283a0fe7db96b1a321a010d3
 {
 	char* ticket_path = extract_global_manifest_path(build_identity, variant, "apticket", "");
 	if (!ticket_path) {
@@ -4567,11 +4394,7 @@ int restore_send_personalized_boot_object_v3(struct idevicerestore_client_t* cli
 
 	char *component = image_name;
 	size_t size = 0;
-<<<<<<< HEAD
-	unsigned char *data = NULL;
-=======
 	void *data = NULL;
->>>>>>> ae8cfb4aa919000b283a0fe7db96b1a321a010d3
 	char *path = NULL;
 
 	logger(LL_INFO, "About to send %s...\n", component);
@@ -4613,11 +4436,7 @@ int restore_send_personalized_boot_object_v3(struct idevicerestore_client_t* cli
 		}
 
 		// Extract component
-<<<<<<< HEAD
-		unsigned char *component_data = NULL;
-=======
 		void *component_data = NULL;
->>>>>>> ae8cfb4aa919000b283a0fe7db96b1a321a010d3
 		size_t component_size = 0;
 		int ret = extract_component(client->ipsw, path, &component_data, &component_size);
 		free(path);
@@ -4704,11 +4523,6 @@ int restore_send_source_boot_object_v4(struct idevicerestore_client_t* client, p
 	const char *component = image_name;
 	// Fork from restore_send_component
 	//
-<<<<<<< HEAD
-	size_t size = 0;
-	unsigned char *data = NULL;
-=======
->>>>>>> ae8cfb4aa919000b283a0fe7db96b1a321a010d3
 	char *path = NULL;
 	int path_optional = 0;
 
@@ -4837,15 +4651,9 @@ int restore_send_source_boot_object_v4(struct idevicerestore_client_t* client, p
 int restore_send_restore_local_policy(struct idevicerestore_client_t* client, plist_t message)
 {
 	size_t size = 0;
-<<<<<<< HEAD
-	unsigned char* data = NULL;
-
-	unsigned char* component_data = NULL;
-=======
 	void* data = NULL;
 
 	void* component_data = NULL;
->>>>>>> ae8cfb4aa919000b283a0fe7db96b1a321a010d3
 	size_t component_size = 0;
 
 	char* component = "Ap,LocalPolicy";
@@ -5280,15 +5088,9 @@ logger(LL_DEBUG, "%s: type = %s\n", __func__, type);
 			}
 		}
 
-<<<<<<< HEAD
-		else if (!strcmp(type, "BasebandData") || !strcmp(type, "BasebandBootData") || !strcmp(type, "BasebandStackData")) {
-			if(restore_send_baseband_data(client, message, type) < 0) {
-				error("ERROR: Unable to send baseband data\n");
-=======
 		else if (!strcmp(type, "BasebandData")) {
-			if(restore_send_baseband_data(client, message) < 0) {
+			if(restore_send_baseband_data(client, message, type) < 0) {
 				logger(LL_ERROR, "Unable to send baseband data\n");
->>>>>>> ae8cfb4aa919000b283a0fe7db96b1a321a010d3
 				return -1;
 			}
 		}
@@ -5689,37 +5491,35 @@ static int restore_process_v7_protocol(struct idevicerestore_client_t* client, p
 
     p_response = plist_dict_get_item(message, "Response");
     if (!p_response || plist_get_node_type(p_response) != PLIST_STRING) {
-        debug("Unknown message received:\n");
-        //if (idevicerestore_debug)
-            debug_plist(message);
+        logger(LL_DEBUG, "Unknown message received:\n");
+        logger_dump_plist(LL_VERBOSE, message, 1);
         return 0;
     }
 
     if (!plist_string_val_compare(p_response, "Acknowledged")) {
         if (*v7_restore_stage == RESTORE_IMAGE){
             if(restore_send_filesystem(client, device) < 0) {
-                error("ERROR: Unable to send filesystem\n");
+                logger(LL_ERROR, "Unable to send filesystem\n");
                 err = -2;
                 client->flags |= FLAG_QUIT;
             }else{
-                info("Verifying filesystem...\n");
+                logger(LL_INFO, "Verifying filesystem...\n");
             }
         }
-        info("%s (%d) ...",restore_progress_string(GET_STAGE(*v7_restore_stage)),GET_NUM(*v7_restore_stage));
+        logger(LL_INFO, "%s (%d) ...",restore_progress_string(GET_STAGE(*v7_restore_stage)),GET_NUM(*v7_restore_stage));
         fflush(stdout);
         return 0;
     }else if (!plist_string_val_compare(p_response, "Complete")) {
 
         p_status = plist_dict_get_item(message, "Status");
         if (!p_status || plist_get_node_type(p_status) != PLIST_INT) {
-            error("Failed to get Complete status from message:\n");
-            //if (idevicerestore_debug)
-                debug_plist(message);
+            logger(LL_ERROR, "Failed to get Complete status from message:\n");
+		        logger_dump_plist(LL_VERBOSE, message, 1);
         }
         plist_get_int_val(p_status, &complete_status);
-        info(" done. (status %lld)\n",complete_status);
+        logger(LL_INFO, " done. (status %lld)\n",complete_status);
     }else{
-        error("Unexpected Response Type: %s\n",plist_get_string_ptr(p_response,NULL));
+        logger(LL_ERROR, "Unexpected Response Type: %s\n",plist_get_string_ptr(p_response,NULL));
     }
 
     if (complete_status != 0){
@@ -5730,14 +5530,14 @@ static int restore_process_v7_protocol(struct idevicerestore_client_t* client, p
     switch (*v7_restore_stage) {
     case MAKE_STAGE(WAIT_FOR_NAND,0):
         *v7_restore_stage = MAKE_STAGE(CREATE_PARTITION_MAP,0);
-        debug("Requesting Stage 0x%llx\n",*v7_restore_stage);
+        logger(LL_DEBUG, "Requesting Stage 0x%llx\n",*v7_restore_stage);
         plist_dict_set_item(dict,"Operation", plist_new_string("Partition"));
         err = restored_send(restore, dict);
         break;
     
     case MAKE_STAGE(CREATE_PARTITION_MAP,0):
         *v7_restore_stage = MAKE_STAGE(CREATE_FILESYSTEM,0);
-        debug("Requesting Stage 0x%llx\n",*v7_restore_stage);
+        logger(LL_DEBUG, "Requesting Stage 0x%llx\n",*v7_restore_stage);
         plist_dict_set_item(dict,"Operation", plist_new_string("Erase"));
         plist_dict_set_item(dict,"VolumeName", plist_new_string("System"));
         plist_dict_set_item(dict,"DeviceName", plist_new_string("/dev/disk0s1"));
@@ -5746,7 +5546,7 @@ static int restore_process_v7_protocol(struct idevicerestore_client_t* client, p
 
     case MAKE_STAGE(CREATE_FILESYSTEM,0):
         *v7_restore_stage = MAKE_STAGE(CREATE_FILESYSTEM,1);
-        debug("Requesting Stage 0x%llx\n",*v7_restore_stage);
+        logger(LL_DEBUG, "Requesting Stage 0x%llx\n",*v7_restore_stage);
         plist_dict_set_item(dict,"Operation", plist_new_string("Erase"));
         plist_dict_set_item(dict,"VolumeName", plist_new_string("Data"));
         plist_dict_set_item(dict,"DeviceName", plist_new_string("/dev/disk0s2"));
@@ -5755,7 +5555,7 @@ static int restore_process_v7_protocol(struct idevicerestore_client_t* client, p
 
     case MAKE_STAGE(CREATE_FILESYSTEM,1):
         *v7_restore_stage = MAKE_STAGE(RESTORE_IMAGE,0);
-        debug("Requesting Stage 0x%llx\n",*v7_restore_stage);
+        logger(LL_DEBUG, "Requesting Stage 0x%llx\n",*v7_restore_stage);
         plist_dict_set_item(dict,"Operation", plist_new_string("Restore"));
         plist_dict_set_item(dict,"DeviceName", plist_new_string("/dev/disk0s1"));
         err = restored_send(restore, dict);
@@ -5763,7 +5563,7 @@ static int restore_process_v7_protocol(struct idevicerestore_client_t* client, p
 
     case MAKE_STAGE(RESTORE_IMAGE,0):
         *v7_restore_stage = MAKE_STAGE(CHECK_FILESYSTEMS,0);
-        debug("Requesting Stage 0x%llx\n",*v7_restore_stage);
+        logger(LL_DEBUG, "Requesting Stage 0x%llx\n",*v7_restore_stage);
         plist_dict_set_item(dict,"Operation", plist_new_string("FilesystemCheck"));
         plist_dict_set_item(dict,"DeviceName", plist_new_string("/dev/disk0s1"));
         err = restored_send(restore, dict);
@@ -5771,7 +5571,7 @@ static int restore_process_v7_protocol(struct idevicerestore_client_t* client, p
 
     case MAKE_STAGE(CHECK_FILESYSTEMS,0):
         *v7_restore_stage = MAKE_STAGE(MOUNT_FILESYSTEMS,0);
-        debug("Requesting Stage 0x%llx\n",*v7_restore_stage);
+        logger(LL_DEBUG, "Requesting Stage 0x%llx\n",*v7_restore_stage);
         plist_dict_set_item(dict,"Operation", plist_new_string("Mount"));
         plist_dict_set_item(dict,"DeviceName", plist_new_string("/dev/disk0s1"));
         plist_dict_set_item(dict,"MountPoint", plist_new_string("/mnt1"));
@@ -5780,7 +5580,7 @@ static int restore_process_v7_protocol(struct idevicerestore_client_t* client, p
 
     case MAKE_STAGE(MOUNT_FILESYSTEMS,0):
         *v7_restore_stage = MAKE_STAGE(CHECK_FILESYSTEMS,1);
-        debug("Requesting Stage 0x%llx\n",*v7_restore_stage);
+        logger(LL_DEBUG, "Requesting Stage 0x%llx\n",*v7_restore_stage);
         plist_dict_set_item(dict,"Operation", plist_new_string("FilesystemCheck"));
         plist_dict_set_item(dict,"DeviceName", plist_new_string("/dev/disk0s2"));
         err = restored_send(restore, dict);
@@ -5788,7 +5588,7 @@ static int restore_process_v7_protocol(struct idevicerestore_client_t* client, p
 
     case MAKE_STAGE(CHECK_FILESYSTEMS,1):
         *v7_restore_stage = MAKE_STAGE(MOUNT_FILESYSTEMS,1);
-        debug("Requesting Stage 0x%llx\n",*v7_restore_stage);
+        logger(LL_DEBUG, "Requesting Stage 0x%llx\n",*v7_restore_stage);
         plist_dict_set_item(dict,"Operation", plist_new_string("Mount"));
         plist_dict_set_item(dict,"DeviceName", plist_new_string("/dev/disk0s2"));
         plist_dict_set_item(dict,"MountPoint", plist_new_string("/mnt2"));
@@ -5797,7 +5597,7 @@ static int restore_process_v7_protocol(struct idevicerestore_client_t* client, p
 
     case MAKE_STAGE(MOUNT_FILESYSTEMS,1):
         *v7_restore_stage = MAKE_STAGE(FIXUP_VAR,0);
-        debug("Requesting Stage 0x%llx\n",*v7_restore_stage);
+        logger(LL_DEBUG, "Requesting Stage 0x%llx\n",*v7_restore_stage);
         plist_dict_set_item(dict,"Operation", plist_new_string("Ditto"));
         plist_dict_set_item(dict,"SourcePath", plist_new_string("/mnt1/private/var"));
         plist_dict_set_item(dict,"DestinationPath", plist_new_string("/mnt2"));
@@ -5806,7 +5606,7 @@ static int restore_process_v7_protocol(struct idevicerestore_client_t* client, p
 
     case MAKE_STAGE(FIXUP_VAR,0):
         *v7_restore_stage = MAKE_STAGE(FIXUP_VAR,1);
-        debug("Requesting Stage 0x%llx\n",*v7_restore_stage);
+        logger(LL_DEBUG, "Requesting Stage 0x%llx\n",*v7_restore_stage);
         plist_dict_set_item(dict,"Operation", plist_new_string("MakeDirectory"));
         plist_dict_set_item(dict,"Mode", plist_new_string("750"));
         plist_dict_set_item(dict,"Path", plist_new_string("/mnt2/root/Media"));
@@ -5815,7 +5615,7 @@ static int restore_process_v7_protocol(struct idevicerestore_client_t* client, p
 
     case MAKE_STAGE(FIXUP_VAR,1):
         *v7_restore_stage = MAKE_STAGE(FIXUP_VAR,2);
-        debug("Requesting Stage 0x%llx\n",*v7_restore_stage);
+        logger(LL_DEBUG, "Requesting Stage 0x%llx\n",*v7_restore_stage);
         plist_dict_set_item(dict,"Operation", plist_new_string("RemovePath"));
         plist_dict_set_item(dict,"Path", plist_new_string("/mnt1/private/var"));
         err = restored_send(restore, dict);
@@ -5823,7 +5623,7 @@ static int restore_process_v7_protocol(struct idevicerestore_client_t* client, p
 
     case MAKE_STAGE(FIXUP_VAR,2):
         *v7_restore_stage = MAKE_STAGE(FIXUP_VAR,3);
-        debug("Requesting Stage 0x%llx\n",*v7_restore_stage);
+        logger(LL_DEBUG, "Requesting Stage 0x%llx\n",*v7_restore_stage);
         plist_dict_set_item(dict,"Operation", plist_new_string("MakeDirectory"));
         plist_dict_set_item(dict,"Mode", plist_new_string("755"));
         plist_dict_set_item(dict,"Path", plist_new_string("/mnt1/private/var"));
@@ -5832,7 +5632,7 @@ static int restore_process_v7_protocol(struct idevicerestore_client_t* client, p
 
     case MAKE_STAGE(FIXUP_VAR,3):
         *v7_restore_stage = MAKE_STAGE(UNMOUNT_FILESYSTEMS,0);
-        debug("Requesting Stage 0x%llx\n",*v7_restore_stage);
+        logger(LL_DEBUG, "Requesting Stage 0x%llx\n",*v7_restore_stage);
         plist_dict_set_item(dict,"Operation", plist_new_string("Unmount"));
         plist_dict_set_item(dict,"MountPoint", plist_new_string("/mnt1"));
         err = restored_send(restore, dict);
@@ -5840,7 +5640,7 @@ static int restore_process_v7_protocol(struct idevicerestore_client_t* client, p
 
     case MAKE_STAGE(UNMOUNT_FILESYSTEMS,0):
         *v7_restore_stage = MAKE_STAGE(UNMOUNT_FILESYSTEMS,1);
-        debug("Requesting Stage 0x%llx\n",*v7_restore_stage);
+        logger(LL_DEBUG, "Requesting Stage 0x%llx\n",*v7_restore_stage);
         plist_dict_set_item(dict,"Operation", plist_new_string("Unmount"));
         plist_dict_set_item(dict,"MountPoint", plist_new_string("/mnt2"));
         err = restored_send(restore, dict);
@@ -5848,13 +5648,13 @@ static int restore_process_v7_protocol(struct idevicerestore_client_t* client, p
 
     case MAKE_STAGE(UNMOUNT_FILESYSTEMS,1):
         *v7_restore_stage = MAKE_STAGE(FLASH_FIRMWARE,0);
-        debug("Requesting Stage 0x%llx\n",*v7_restore_stage);
+        logger(LL_DEBUG, "Requesting Stage 0x%llx\n",*v7_restore_stage);
         err = restore_send_nor(client, NULL);
         break;
 
     case MAKE_STAGE(FLASH_FIRMWARE,0):
         *v7_restore_stage = MAKE_STAGE(UPDATE_BASEBAND,0);
-        debug("Requesting Stage 0x%llx\n",*v7_restore_stage);
+        logger(LL_DEBUG, "Requesting Stage 0x%llx\n",*v7_restore_stage);
         plist_dict_set_item(dict,"Operation", plist_new_string("UpdateBaseBand"));
         plist_dict_set_item(dict,"UpdateBasebandBootloader", plist_new_bool(1));
         err = restored_send(restore, dict);
@@ -5862,14 +5662,14 @@ static int restore_process_v7_protocol(struct idevicerestore_client_t* client, p
 
     case MAKE_STAGE(UPDATE_BASEBAND,0):
         *v7_restore_stage = MAKE_STAGE(SET_BOOT_STAGE,0);
-        debug("Requesting Stage 0x%llx\n",*v7_restore_stage);
+        logger(LL_DEBUG, "Requesting Stage 0x%llx\n",*v7_restore_stage);
         plist_dict_set_item(dict,"Operation", plist_new_string("SetBootStage"));
         err = restored_send(restore, dict);
         break;
 
     case MAKE_STAGE(SET_BOOT_STAGE,0):
         *v7_restore_stage = MAKE_STAGE(MODIFY_BOOTARGS,0);
-        debug("Requesting Stage 0x%llx\n",*v7_restore_stage);
+        logger(LL_DEBUG, "Requesting Stage 0x%llx\n",*v7_restore_stage);
         plist_dict_set_item(dict,"Operation", plist_new_string("SetNVRam"));
         plist_dict_set_item(dict,"NVRAMKey", plist_new_string("auto-boot"));
         plist_dict_set_item(dict,"NVRAMValue", plist_new_string("true"));
@@ -5878,7 +5678,7 @@ static int restore_process_v7_protocol(struct idevicerestore_client_t* client, p
 
     case MAKE_STAGE(MODIFY_BOOTARGS,0):
         *v7_restore_stage = MAKE_STAGE(MODIFY_BOOTARGS,1);
-        debug("Requesting Stage 0x%llx\n",*v7_restore_stage);
+        logger(LL_DEBUG, "Requesting Stage 0x%llx\n",*v7_restore_stage);
         plist_dict_set_item(dict,"Operation", plist_new_string("SetNVRam"));
         plist_dict_set_item(dict,"NVRAMKey", plist_new_string("bootdelay"));
         plist_dict_set_item(dict,"NVRAMValue", plist_new_string("0"));
@@ -5886,12 +5686,12 @@ static int restore_process_v7_protocol(struct idevicerestore_client_t* client, p
         break;
 
     case MAKE_STAGE(MODIFY_BOOTARGS,1):
-        info("Done restoring\n");
+        logger(LL_INFO, "Done restoring\n");
         client->flags |= FLAG_QUIT;
         break;
 
     default:
-        error("Restore at unexpected stage %lld (0x%llx)\n",*v7_restore_stage,*v7_restore_stage);
+        logger(LL_ERROR, "Restore at unexpected stage %lld (0x%llx)\n",*v7_restore_stage,*v7_restore_stage);
         err = -7;
         break;
     }
@@ -6246,12 +6046,8 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 		restore_error = restored_receive(restore, &message);
 #ifdef HAVE_RESTORE_E_RECEIVE_TIMEOUT
 		if (restore_error == RESTORE_E_RECEIVE_TIMEOUT) {
-<<<<<<< HEAD
-			debug("No data to read (timeout)\n");
-=======
 			logger(LL_DEBUG, "No data to read (timeout)\n");
 			message = NULL;
->>>>>>> ae8cfb4aa919000b283a0fe7db96b1a321a010d3
 			continue;
 		} else if (restore_error != RESTORE_E_SUCCESS) {
 			logger(LL_ERROR, "Could not read data (%d). Aborting.\n", restore_error);
@@ -6260,254 +6056,156 @@ int restore_device(struct idevicerestore_client_t* client, plist_t build_identit
 		}
 #else
 		if (restore_error != RESTORE_E_SUCCESS) {
-<<<<<<< HEAD
-			debug("No data to read\n");
-=======
 			logger(LL_DEBUG, "No data to read\n");
 			message = NULL;
->>>>>>> ae8cfb4aa919000b283a0fe7db96b1a321a010d3
 			continue;
 		}
 #endif
+    if (client->restore->protocol_version == 7){
+      //iOS 1.0X restores
+      err = restore_process_v7_protocol(client, message, &v7_restore_stage);        
+    }else{ //iOS 1.1 and everything newer
+      // discover what kind of message has been received
+      node = plist_dict_get_item(message, "MsgType");
+      if (!node || plist_get_node_type(node) != PLIST_STRING) {
+        logger(LL_DEBUG, "Unknown message received:\n");
+        logger_dump_plist(LL_DEBUG, message, 1);
+        plist_free(message);
+        message = NULL;
+        continue;
+      }
+      plist_get_string_val(node, &type);
 
-<<<<<<< HEAD
-        if (client->restore->protocol_version == 7){
-            //iOS 1.0X restores
-            err = restore_process_v7_protocol(client, message, &v7_restore_stage);
-            
-        }else{ //iOS 1.1 and everything newer
-            // discover what kind of message has been received
-            node = plist_dict_get_item(message, "MsgType");
-            if (!node || plist_get_node_type(node) != PLIST_STRING) {
-                debug("Unknown message received:\n");
-                //if (idevicerestore_debug)
-                    debug_plist(message);
-                plist_free(message);
-                message = NULL;
-                continue;
-            }
-            plist_get_string_val(node, &type);
-=======
-		// discover what kind of message has been received
-		node = plist_dict_get_item(message, "MsgType");
-		if (!node || plist_get_node_type(node) != PLIST_STRING) {
-			logger(LL_DEBUG, "Unknown message received:\n");
-			logger_dump_plist(LL_DEBUG, message, 1);
-			plist_free(message);
-			message = NULL;
-			continue;
-		}
-		plist_get_string_val(node, &type);
->>>>>>> ae8cfb4aa919000b283a0fe7db96b1a321a010d3
+      // data request messages are sent by restored whenever it requires
+      // files sent to the server by the client. these data requests include
+      // SystemImageData, RootTicket, KernelCache, NORData and BasebandData requests
+      if (!strcmp(type, "DataRequestMsg")) {
+        err = restore_handle_data_request_msg(client, message);
+      }
 
-            // data request messages are sent by restored whenever it requires
-            // files sent to the server by the client. these data requests include
-            // SystemImageData, RootTicket, KernelCache, NORData and BasebandData requests
-            if (!strcmp(type, "DataRequestMsg")) {
-                err = restore_handle_data_request_msg(client, message);
-            }
-
-<<<<<<< HEAD
-            // async data request message
-            else if (!strcmp(type, "AsyncDataRequestMsg")) {
-                THREAD_T t = THREAD_T_NULL;
-                struct _restore_async_args* args = (struct _restore_async_args*)malloc(sizeof(struct _restore_async_args));
-                args->client = client;
-                args->message = plist_copy(message);
-                if (thread_new(&t, _restore_handle_async_data_request, args) < 0) {
-                    free(args);
-                    error("ERROR: Failed to start async data request handler thread!\n");
-                    err = -1;
-                } else {
-                    thread_detach(t);
-                }
-            }
-=======
-		// async data request message
-		else if (!strcmp(type, "AsyncDataRequestMsg")) {
-			THREAD_T t = THREAD_T_NULL;
-			struct _restore_async_args* args = (struct _restore_async_args*)malloc(sizeof(struct _restore_async_args));
-			args->client = client;
-			args->message = plist_copy(message);
-			if (thread_new(&t, _restore_handle_async_data_request, args) < 0) {
-				free(args);
-				logger(LL_ERROR, "Failed to start async data request handler thread!\n");
-				err = -1;
-				if (client->flags & FLAG_IGNORE_ERRORS) {
-					client->flags &= ~FLAG_IGNORE_ERRORS;
-				}
-			} else {
-				thread_detach(t);
-			}
-		}
->>>>>>> ae8cfb4aa919000b283a0fe7db96b1a321a010d3
-
-            // restore logs are available if a previous restore failed
-            else if (!strcmp(type, "PreviousRestoreLogMsg")) {
-                err = restore_handle_previous_restore_log_msg(restore, message);
-            }
-
-            // progress notification messages sent by the restored inform the client
-            // of it's current operation and sometimes percent of progress is complete
-            else if (!strcmp(type, "ProgressMsg")) {
-                err = restore_handle_progress_msg(client, message);
-            }
-
-            // status messages usually indicate the current state of the restored
-            // process or often to signal an error has been encountered
-            else if (!strcmp(type, "StatusMsg")) {
-                err = restore_handle_status_msg(client, message);
-                if (restore_finished) {
-                    plist_t dict = plist_new_dict();
-                    plist_dict_set_item(dict, "MsgType", plist_new_string("ReceivedFinalStatusMsg"));
-                    restored_send(restore, dict);
-                    plist_free(dict);
-                    client->flags |= FLAG_QUIT;
-                }
-            }
-
-<<<<<<< HEAD
-            else if (!strcmp(type, "CheckpointMsg")) {
-                uint64_t ckpt_id;
-                int64_t ckpt_res;
-                uint8_t ckpt_complete = 0;
-                const char* ckpt_name = NULL;
-                // Get checkpoint id
-                node = plist_dict_get_item(message, "CHECKPOINT_ID");
-                if (!node || plist_get_node_type(node) != PLIST_INT) {
-                    debug("Failed to parse checkpoint id from checkpoint plist\n");
-                    err = -1;
-                    break;
-                }
-                plist_get_uint_val(node, &ckpt_id);
-                // Get checkpoint_name
-                node = plist_dict_get_item(message, "CHECKPOINT_NAME");
-                ckpt_name = (node) ? plist_get_string_ptr(node, NULL) : "unknown";
-                // Get checkpoint result
-                node = plist_dict_get_item(message, "CHECKPOINT_RESULT");
-                if (!node || plist_get_node_type(node) != PLIST_INT) {
-                    debug("Failed to parse checkpoint result from checkpoint plist\n");
-                    err = -1;
-                    break;
-                }
-                plist_get_int_val(node, &ckpt_res);
-                // Get checkpoint complete
-                node = plist_dict_get_item(message, "CHECKPOINT_COMPLETE");
-                if (PLIST_IS_BOOLEAN(node)) {
-                    plist_get_bool_val(node, &ckpt_complete);
-                }
-
-                if (ckpt_complete) {
-                    info("Checkpoint completed id: 0x%" PRIX64 " (%s) result=%" PRIi64 "\n", ckpt_id, ckpt_name, ckpt_res);
-                } else {
-                    info("Checkpoint started   id: 0x%" PRIX64 " (%s)\n", ckpt_id, ckpt_name);
-                }
-                node = plist_dict_get_item(message, "CHECKPOINT_WARNING");
-                if (node) {
-                    info("Checkpoint WARNING id: 0x%" PRIX64 " result=%" PRIi64 ": %s\n", ckpt_id, ckpt_res, plist_get_string_ptr(node, NULL));
-                }
-                node = plist_dict_get_item(message, "CHECKPOINT_ERROR");
-                if (node) {
-                    info("Checkpoint FAILURE id: 0x%" PRIX64 " result=%" PRIi64 ": %s\n", ckpt_id, ckpt_res, plist_get_string_ptr(node, NULL));
-                }
-            }
-=======
-		else if (!strcmp(type, "CheckpointMsg")) {
-			uint64_t ckpt_id;
-			int64_t ckpt_res;
-			uint8_t ckpt_complete = 0;
-			const char* ckpt_name = NULL;
-			// Get checkpoint id
-			node = plist_dict_get_item(message, "CHECKPOINT_ID");
-			if (!node || plist_get_node_type(node) != PLIST_INT) {
-				logger(LL_DEBUG, "Failed to parse checkpoint id from checkpoint plist\n");
-				err = -1;
-				break;
-			}
-			plist_get_uint_val(node, &ckpt_id);
-			// Get checkpoint_name
-			node = plist_dict_get_item(message, "CHECKPOINT_NAME");
-			ckpt_name = (node) ? plist_get_string_ptr(node, NULL) : "unknown";
-			// Get checkpoint result
-			node = plist_dict_get_item(message, "CHECKPOINT_RESULT");
-			if (!node || plist_get_node_type(node) != PLIST_INT) {
-				logger(LL_DEBUG, "Failed to parse checkpoint result from checkpoint plist\n");
-				err = -1;
-				break;
-			}
-			plist_get_int_val(node, &ckpt_res);
-			// Get checkpoint complete
-			node = plist_dict_get_item(message, "CHECKPOINT_COMPLETE");
-			if (PLIST_IS_BOOLEAN(node)) {
-				plist_get_bool_val(node, &ckpt_complete);
-			}
-
-			if (ckpt_complete) {
-				logger(LL_VERBOSE, "Checkpoint completed id: 0x%" PRIX64 " (%s) result=%" PRIi64 "\n", ckpt_id, ckpt_name, ckpt_res);
-			} else {
-				logger(LL_VERBOSE, "Checkpoint started   id: 0x%" PRIX64 " (%s)\n", ckpt_id, ckpt_name);
-			}
-			node = plist_dict_get_item(message, "CHECKPOINT_WARNING");
-			if (node) {
-				logger(LL_VERBOSE, "Checkpoint WARNING id: 0x%" PRIX64 " result=%" PRIi64 ": %s\n", ckpt_id, ckpt_res, plist_get_string_ptr(node, NULL));
-			}
-			node = plist_dict_get_item(message, "CHECKPOINT_ERROR");
-			if (node) {
-				logger(LL_VERBOSE, "Checkpoint FAILURE id: 0x%" PRIX64 " result=%" PRIi64 ": %s\n", ckpt_id, ckpt_res, plist_get_string_ptr(node, NULL));
-			}
-		}
->>>>>>> ae8cfb4aa919000b283a0fe7db96b1a321a010d3
-
-            // baseband update message
-            else if (!strcmp(type, "BBUpdateStatusMsg")) {
-                err = restore_handle_bb_update_status_msg(client, message);
-            }
-
-            // baseband updater output data request
-            else if (!strcmp(type, "BasebandUpdaterOutputData")) {
-                err = restore_handle_baseband_updater_output_data(client, message);
-            }
-
-            // handle restored crash, print backtrace
-            else if (!strcmp(type, "RestoredCrash")) {
-                err = restore_handle_restored_crash(client, message);
-            }
-
-            // handle async wait
-            else if (!strcmp(type, "AsyncWait")) {
-                err = restore_handle_async_wait(client, message);
-            }
-
-            else if (!strcmp(type, "RestoreAttestation")) {
-                err = restore_handle_restore_attestation(client, message);
-            }
-
-<<<<<<< HEAD
-            // there might be some other message types i'm not aware of, but I think
-            // at least the "previous error logs" messages usually end up here
-            else {
-                debug("Unknown message type received\n");
-                //if (idevicerestore_debug)
-                    debug_plist(message);
-            }
+      // async data request message
+      else if (!strcmp(type, "AsyncDataRequestMsg")) {
+        THREAD_T t = THREAD_T_NULL;
+        struct _restore_async_args* args = (struct _restore_async_args*)malloc(sizeof(struct _restore_async_args));
+        args->client = client;
+        args->message = plist_copy(message);
+        if (thread_new(&t, _restore_handle_async_data_request, args) < 0) {
+          free(args);
+          logger(LL_ERROR, "Failed to start async data request handler thread!\n");
+          err = -1;
+          if (client->flags & FLAG_IGNORE_ERRORS) {
+            client->flags &= ~FLAG_IGNORE_ERRORS;
+          }
+        } else {
+          thread_detach(t);
         }
-=======
-		else if (!strcmp(type, "RestoreProtocol")) {
-			logger(LL_DEBUG, "RestoreProtocol message:\n");
-			logger_dump_plist(LL_DEBUG, message, 1);
-		}
+      }
 
-		// there might be some other message types i'm not aware of, but I think
-		// at least the "previous error logs" messages usually end up here
-		else {
-			logger(LL_DEBUG, "Unknown message type received\n");
-			logger_dump_plist(LL_DEBUG, message, 1);
-		}
+      // restore logs are available if a previous restore failed
+      else if (!strcmp(type, "PreviousRestoreLogMsg")) {
+        err = restore_handle_previous_restore_log_msg(restore, message);
+      }
 
-		free(type);
-		plist_free(message);
-		message = NULL;
->>>>>>> ae8cfb4aa919000b283a0fe7db96b1a321a010d3
+      // progress notification messages sent by the restored inform the client
+      // of it's current operation and sometimes percent of progress is complete
+      else if (!strcmp(type, "ProgressMsg")) {
+        err = restore_handle_progress_msg(client, message);
+      }
+
+      // status messages usually indicate the current state of the restored
+      // process or often to signal an error has been encountered
+      else if (!strcmp(type, "StatusMsg")) {
+        err = restore_handle_status_msg(client, message);
+        if (restore_finished) {
+          plist_t dict = plist_new_dict();
+          plist_dict_set_item(dict, "MsgType", plist_new_string("ReceivedFinalStatusMsg"));
+          restored_send(restore, dict);
+          plist_free(dict);
+          client->flags |= FLAG_QUIT;
+        }
+      }
+
+      else if (!strcmp(type, "CheckpointMsg")) {
+        uint64_t ckpt_id;
+        int64_t ckpt_res;
+        uint8_t ckpt_complete = 0;
+        const char* ckpt_name = NULL;
+        // Get checkpoint id
+        node = plist_dict_get_item(message, "CHECKPOINT_ID");
+        if (!node || plist_get_node_type(node) != PLIST_INT) {
+          logger(LL_DEBUG, "Failed to parse checkpoint id from checkpoint plist\n");
+          err = -1;
+          break;
+        }
+        plist_get_uint_val(node, &ckpt_id);
+        // Get checkpoint_name
+        node = plist_dict_get_item(message, "CHECKPOINT_NAME");
+        ckpt_name = (node) ? plist_get_string_ptr(node, NULL) : "unknown";
+        // Get checkpoint result
+        node = plist_dict_get_item(message, "CHECKPOINT_RESULT");
+        if (!node || plist_get_node_type(node) != PLIST_INT) {
+          logger(LL_DEBUG, "Failed to parse checkpoint result from checkpoint plist\n");
+          err = -1;
+          break;
+        }
+        plist_get_int_val(node, &ckpt_res);
+        // Get checkpoint complete
+        node = plist_dict_get_item(message, "CHECKPOINT_COMPLETE");
+        if (PLIST_IS_BOOLEAN(node)) {
+          plist_get_bool_val(node, &ckpt_complete);
+        }
+
+        if (ckpt_complete) {
+          logger(LL_VERBOSE, "Checkpoint completed id: 0x%" PRIX64 " (%s) result=%" PRIi64 "\n", ckpt_id, ckpt_name, ckpt_res);
+        } else {
+          logger(LL_VERBOSE, "Checkpoint started   id: 0x%" PRIX64 " (%s)\n", ckpt_id, ckpt_name);
+        }
+        node = plist_dict_get_item(message, "CHECKPOINT_WARNING");
+        if (node) {
+          logger(LL_VERBOSE, "Checkpoint WARNING id: 0x%" PRIX64 " result=%" PRIi64 ": %s\n", ckpt_id, ckpt_res, plist_get_string_ptr(node, NULL));
+        }
+        node = plist_dict_get_item(message, "CHECKPOINT_ERROR");
+        if (node) {
+          logger(LL_VERBOSE, "Checkpoint FAILURE id: 0x%" PRIX64 " result=%" PRIi64 ": %s\n", ckpt_id, ckpt_res, plist_get_string_ptr(node, NULL));
+        }
+      }
+
+      // baseband update message
+      else if (!strcmp(type, "BBUpdateStatusMsg")) {
+        err = restore_handle_bb_update_status_msg(client, message);
+      }
+
+      // baseband updater output data request
+      else if (!strcmp(type, "BasebandUpdaterOutputData")) {
+        err = restore_handle_baseband_updater_output_data(client, message);
+      }
+
+      // handle restored crash, print backtrace
+      else if (!strcmp(type, "RestoredCrash")) {
+        err = restore_handle_restored_crash(client, message);
+      }
+
+      // handle async wait
+      else if (!strcmp(type, "AsyncWait")) {
+        err = restore_handle_async_wait(client, message);
+      }
+
+      else if (!strcmp(type, "RestoreAttestation")) {
+        err = restore_handle_restore_attestation(client, message);
+      }
+
+      else if (!strcmp(type, "RestoreProtocol")) {
+        logger(LL_DEBUG, "RestoreProtocol message:\n");
+        logger_dump_plist(LL_DEBUG, message, 1);
+      }
+
+      // there might be some other message types i'm not aware of, but I think
+      // at least the "previous error logs" messages usually end up here
+      else {
+        logger(LL_DEBUG, "Unknown message type received\n");
+        logger_dump_plist(LL_DEBUG, message, 1);
+      }
+    }
 	}
 	if (client->async_err != 0) {
 		err = client->async_err;

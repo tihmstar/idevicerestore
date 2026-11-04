@@ -26,9 +26,6 @@
 #include <idevicerestore/mbn.h>
 #include <idevicerestore/common.h>
 
-<<<<<<< HEAD
-mbn_file* mbn_parse(unsigned char* data, size_t size)
-=======
 #define MBN_V1_MAGIC "\x0A\x00\x00\x00"
 #define MBN_V1_MAGIC_SIZE 4
 
@@ -84,7 +81,6 @@ typedef struct {
 } mbn_bin_header;
 
 typedef struct
->>>>>>> ae8cfb4aa919000b283a0fe7db96b1a321a010d3
 {
 	uint32_t reserved;
 	uint32_t version;
@@ -284,13 +280,9 @@ void* mbn_stitch(const void* data, size_t data_size, const void* blob, size_t bl
 	return buf;
 }
 
-<<<<<<< HEAD
-int mbn_update_sig_blob(mbn_file* mbn, const unsigned char* sigdata, size_t siglen)
-=======
 // the sum of header size and all sizes inside it must fit within the size of
 // the data
 static int mbn_v7_header_sizes_valid(const mbn_v7_header* header, size_t size)
->>>>>>> ae8cfb4aa919000b283a0fe7db96b1a321a010d3
 {
 	return (sizeof(*header) + header->common_metadata_size +
 	       header->qti_metadata_size + header->oem_metadata_size +
@@ -298,8 +290,6 @@ static int mbn_v7_header_sizes_valid(const mbn_v7_header* header, size_t size)
 	       header->qti_certificate_chain_size + header->oem_signature_size +
 	       header->oem_certificate_chain_size) <= size;
 }
-<<<<<<< HEAD
-=======
 
 // 0xE0 == sizeof(mav25_authority_meta_field_t), 0x68 ==
 // kExpectedOEMSignatureSize, 0xD20 == kExpectedOEMCertChainSize
@@ -488,4 +478,3 @@ void* mbn_mav25_stitch(const void* data, size_t data_size, const void* blob, siz
 
 	return buf;
 }
->>>>>>> ae8cfb4aa919000b283a0fe7db96b1a321a010d3

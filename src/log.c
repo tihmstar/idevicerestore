@@ -37,8 +37,8 @@
 #include <libimobiledevice-glue/thread.h>
 #include <plist/plist.h>
 
-#include "log.h"
-#include "common.h"
+#include "../include/idevicerestore/log.h"
+#include "../include/idevicerestore/common.h"
 
 static int stderr_enabled = 1;
 

@@ -101,11 +101,7 @@ static void fls_parse_elements(fls_file* fls)
 	}
 }
 
-<<<<<<< HEAD
-fls_file* fls_parse(unsigned char* data, size_t size)
-=======
 fls_file* fls_parse(const void* data, size_t size)
->>>>>>> ae8cfb4aa919000b283a0fe7db96b1a321a010d3
 {
 	fls_file* fls = (fls_file*)malloc(sizeof(fls_file));
 	if (!fls) {
@@ -136,11 +132,7 @@ void fls_free(fls_file* fls)
 	}
 }
 
-<<<<<<< HEAD
-int fls_update_sig_blob(fls_file* fls, const unsigned char* sigdata, size_t siglen)
-=======
 int fls_update_sig_blob(fls_file* fls, const void* sigdata, size_t siglen)
->>>>>>> ae8cfb4aa919000b283a0fe7db96b1a321a010d3
 {
 	/* FIXME: the code in this function is not big endian safe */
 	if (!fls || !fls->num_elements) {
@@ -247,11 +239,7 @@ int fls_update_sig_blob(fls_file* fls, const void* sigdata, size_t siglen)
 	return 0;
 }
 
-<<<<<<< HEAD
-int fls_insert_ticket(fls_file* fls, const unsigned char* data, size_t size)
-=======
 int fls_insert_ticket(fls_file* fls, const void* data, size_t size)
->>>>>>> ae8cfb4aa919000b283a0fe7db96b1a321a010d3
 {
 	/* FIXME: the code in this function is not big endian safe */
 	if (!fls || !fls->num_elements) {
