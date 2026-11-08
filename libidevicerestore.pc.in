@@ -6,7 +6,7 @@ includedir=@includedir@
 Name: libidevicerestore
 Description: idevicerestore as a library
 
-Requires: @openssl_requires@ @libirecovery_requires@ @libimobiledevice_requires@ @libusbmuxd_requires@ @libplist_requires@ @limd_glue_requires@ @libzip_requires@ @libcurl_requires@ @zlib_requires@
+Requires: @libirecovery_requires@ @libimobiledevice_requires@ @libusbmuxd_requires@ @libplist_requires@ @limd_glue_requires@ @libtatsu_requires@ @libzip_requires@ @libcurl_requires@ @zlib_requires@
 Version: @release_version@
 Libs: -L${libdir} -lidevicerestore
 Cflags: -I${includedir}

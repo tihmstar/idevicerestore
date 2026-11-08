@@ -46,6 +46,8 @@ extern "C" {
 #define FLAG_ALLOW_RESTORE_MODE (1 << 10)
 #define FLAG_NO_RESTORE      (1 << 11)
 #define FLAG_IGNORE_ERRORS   (1 << 12)
+#define FLAG_KEEP_PERS       (1 << 13)
+#define FLAG_IN_PROGRESS     (1 << 30)
 
 #define RESTORE_VARIANT_ERASE_INSTALL      "Erase Install (IPSW)"
 #define RESTORE_VARIANT_UPGRADE_INSTALL    "Upgrade Install (IPSW)"
@@ -83,9 +85,6 @@ void idevicerestore_set_flags(struct idevicerestore_client_t* client, int flags)
 void idevicerestore_set_ipsw(struct idevicerestore_client_t* client, const char* path);
 void idevicerestore_set_cache_path(struct idevicerestore_client_t* client, const char* path);
 void idevicerestore_set_progress_callback(struct idevicerestore_client_t* client, idevicerestore_progress_cb_t cbfunc, void* userdata);
-void idevicerestore_set_info_stream(FILE* strm);
-void idevicerestore_set_error_stream(FILE* strm);
-void idevicerestore_set_debug_stream(FILE* strm);
 
 int idevicerestore_start(struct idevicerestore_client_t* client);
 const char* idevicerestore_get_error(void);
@@ -93,8 +92,8 @@ const char* idevicerestore_get_error(void);
 irecv_device_t get_irecv_device(struct idevicerestore_client_t* client);
 int get_ecid(struct idevicerestore_client_t* client, uint64_t* ecid);
 int is_image4_supported(struct idevicerestore_client_t* client);
-int get_ap_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, int* nonce_size);
-int get_sep_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, int* nonce_size);
+int get_ap_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, unsigned int* nonce_size);
+int get_sep_nonce(struct idevicerestore_client_t* client, unsigned char** nonce, unsigned int* nonce_size);
 int get_tss_response(struct idevicerestore_client_t* client, plist_t build_identity, plist_t* tss);
 int get_local_policy_tss_response(struct idevicerestore_client_t* client, plist_t build_identity, plist_t* tss);
 int get_recoveryos_root_ticket_tss_response(struct idevicerestore_client_t* client, plist_t build_identity, plist_t* tss);
@@ -114,8 +113,8 @@ void build_identity_print_information(plist_t build_identity);
 int build_identity_has_component(plist_t build_identity, const char* component);
 int build_identity_get_component_path(plist_t build_identity, const char* component, char** path);
 int ipsw_extract_filesystem(ipsw_archive_t ipsw, plist_t build_identity, char** filesystem);
-int extract_component(ipsw_archive_t ipsw, const char* path, unsigned char** component_data, size_t* component_size);
-int personalize_component(const char *component, const unsigned char* component_data, size_t component_size, plist_t tss_response, unsigned char** personalized_component, size_t* personalized_component_size);
+int extract_component(ipsw_archive_t ipsw, const char* path, void** component_data, size_t* component_size);
+int personalize_component(struct idevicerestore_client_t* client, const char *component, const void* component_data, size_t component_size, plist_t tss_response, void** personalized_component, size_t* personalized_component_size);
 int get_preboard_manifest(struct idevicerestore_client_t* client, plist_t build_identity, plist_t* manifest);
 
 const char* get_component_name(const char* filename);
